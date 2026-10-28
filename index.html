@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Attendance Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--text:#1b1f24;--muted:#6b7280;--line:#e5e7eb;--accent:#4f46e5;--ok:#15803d;--okbg:#dcfce7;--warn:#b45309;--warnbg:#fef3c7;--bad:#b91c1c;--badbg:#fee2e2}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaed;--muted:#9aa1ab;--line:#2a2f38;--accent:#818cf8;--ok:#86efac;--okbg:#14301f;--warn:#fcd34d;--warnbg:#3a2c0b;--bad:#fca5a5;--badbg:#3b1616}}
@@ -36,6 +37,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 <h1>Attendance Planner</h1>
 <div class="bar" id="bar"></div>
 <div class="card"><table id="tbl"></table></div>
+<p class="note" id="status">Connecting…</p>
 <p class="note">Attend = classes you still must attend from the remaining ones. Skip = classes you can miss. Anyone can edit Done / Attended in the table. “Update totals” changes the total classes for every user.</p>
 
 <dialog id="totDlg">
@@ -47,25 +49,52 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </dialog>
 
 <script>
-/* ---------- Storage layer (swap these two functions for Firebase/Supabase to share data between devices) ---------- */
-const KEY = "attendance-planner-v1";
-function loadState(){ try{ const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
-function saveState(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
+/* ===== 1. PASTE YOUR SUPABASE KEYS HERE ===== */
+const SUPABASE_URL = "https://qxqdzvoatrtncypmgzce.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4cWR6dm9hdHJ0bmN5cG1nemNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDM3MzcsImV4cCI6MjEwODc3OTczN30.ykwYPHZoNbPQMvd5Zusl37NNn9Brh3lOQwUnrFoD5dU";
+/* ============================================ */
 
-/* ---------- Seed data (from your spreadsheet) ---------- */
-const SUBJECTS = ["Advanced Databases","Professional Elective","Theory of Computation","Software Engineering","Deep Learning","Aptitude - 3","Soft Skills","Problem Solving","Software Engg Lab"];
-const seed = () => ({
-  totals: {"Advanced Databases":59,"Professional Elective":74,"Theory of Computation":49,"Software Engineering":35,"Deep Learning":63,"Aptitude - 3":30,"Soft Skills":26,"Problem Solving":61,"Software Engg Lab":24},
-  // per user: [done, attended] in the same order as SUBJECTS
-  users: {
-    Pratik:[[44,41],[60,50],[37,34],[26,25],[46,42],[22,20],[20,17],[49,49],[18,16]],
-    Ram:   [[44,38],[60,58],[38,37],[26,23],[46,42],[22,20],[19,17],[47,43],[18,16]],
-    Prince:[[44,41],[58,48],[37,34],[25,24],[46,42],[22,20],[19,16],[47,47],[18,16]],
-    Navya: [[44,42],[60,56],[37,35],[26,24],[46,43],[22,22],[19,18],[47,47],[18,16]]
-  }
-});
-let state = loadState() || seed();
-let current = Object.keys(state.users)[0];
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let subjects = [];   // [{name,total,position}] sorted
+let users = {};      // { userName: { subject: {done, attended} } }
+let current = null;
+const statusEl = document.getElementById("status");
+const setStatus = (t) => { statusEl.textContent = t; };
+
+/* ---------- Data layer ---------- */
+async function loadAll(){
+  const [s, e] = await Promise.all([
+    sb.from("subjects").select("*").order("position"),
+    sb.from("entries").select("*")
+  ]);
+  if (s.error || e.error) { setStatus("Could not load data: " + (s.error || e.error).message); return false; }
+  subjects = s.data;
+  users = {};
+  e.data.forEach(r => {
+    (users[r.user_name] ||= {})[r.subject] = { done: r.done, attended: r.attended };
+  });
+  if (!current || !users[current]) current = Object.keys(users).sort()[0] || null;
+  setStatus("Live · changes sync across devices");
+  return true;
+}
+
+async function saveEntry(user, subject, done, attended){
+  const { error } = await sb.from("entries").upsert({ user_name: user, subject, done, attended }, { onConflict: "user_name,subject" });
+  if (error) setStatus("Save failed: " + error.message);
+}
+
+async function saveTotals(map){
+  const rows = subjects.map(s => ({ name: s.name, total: map[s.name], position: s.position }));
+  const { error } = await sb.from("subjects").upsert(rows, { onConflict: "name" });
+  if (error) setStatus("Save failed: " + error.message);
+}
+
+async function addUser(name){
+  const rows = subjects.map(s => ({ user_name: name, subject: s.name, done: 0, attended: 0 }));
+  const { error } = await sb.from("entries").insert(rows);
+  if (error) { setStatus("Could not add user: " + error.message); return false; }
+  return true;
+}
 
 /* ---------- Core calculation ---------- */
 function plan(T, D, A, p){
@@ -78,49 +107,55 @@ function plan(T, D, A, p){
 }
 const cell = (r) => r.impossible ? `<span class="pill bad" title="Target not reachable">✕</span>` : `<span class="pill ${r.must? 'warn':'ok'}">${r.must}</span>`;
 const skipCell = (r) => `<span class="pill ${r.impossible?'bad':'ok'}">${r.impossible?0:r.skip}</span>`;
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 /* ---------- Render ---------- */
 function render(){
   const bar = document.getElementById("bar");
   bar.innerHTML = "";
-  Object.keys(state.users).forEach(u=>{
+  Object.keys(users).sort().forEach(u => {
     const b = document.createElement("button");
-    b.textContent = u; if(u===current) b.className="active";
-    b.onclick = ()=>{ current=u; render(); };
+    b.textContent = u; if (u === current) b.className = "active";
+    b.onclick = () => { current = u; render(); };
     bar.appendChild(b);
   });
-  const add = document.createElement("button"); add.textContent="+ Add user";
-  add.onclick = ()=>{
-    const n = (prompt("New user name?")||"").trim();
-    if(!n || state.users[n]) return;
-    state.users[n] = SUBJECTS.map(()=>[0,0]); current=n; saveState(state); render();
+  const add = document.createElement("button"); add.textContent = "+ Add user";
+  add.onclick = async () => {
+    const n = (prompt("New user name?") || "").trim();
+    if (!n || users[n]) return;
+    if (await addUser(n)) { current = n; await loadAll(); render(); }
   };
   bar.appendChild(add);
-  const sp = document.createElement("div"); sp.className="spacer"; bar.appendChild(sp);
-  const tb = document.createElement("button"); tb.className="primary"; tb.textContent="Update total classes";
+  const sp = document.createElement("div"); sp.className = "spacer"; bar.appendChild(sp);
+  const tb = document.createElement("button"); tb.className = "primary"; tb.textContent = "Update total classes";
   tb.onclick = openTotals; bar.appendChild(tb);
 
-  const rows = state.users[current];
+  const tbl = document.getElementById("tbl");
+  if (!current) { tbl.innerHTML = "<tr><td>No users yet. Click “+ Add user”.</td></tr>"; return; }
+  const rows = users[current];
   let html = `<tr><th rowspan="2">Subject</th><th rowspan="2">Total</th><th rowspan="2">Done</th><th rowspan="2">Remaining</th><th rowspan="2">Attended</th><th rowspan="2">Live %</th><th class="grp" colspan="2">For 86%</th><th class="grp" colspan="2">For 75%</th></tr>
   <tr><th>Attend</th><th>Skip</th><th>Attend</th><th>Skip</th></tr>`;
-  SUBJECTS.forEach((s,i)=>{
-    const [D,A] = rows[i]; const T = state.totals[s];
-    const r86 = plan(T,D,A,0.86), r75 = plan(T,D,A,0.75);
-    const live = D>0 ? Math.round(A/D*100) : 0;
-    const cls = live>=86?'ok':live>=75?'warn':'bad';
-    html += `<tr><td>${s}</td><td>${T}</td>
-      <td><input type="number" min="0" value="${D}" data-i="${i}" data-f="0"></td>
+  subjects.forEach(s => {
+    const { done: D, attended: A } = rows[s.name] || { done: 0, attended: 0 };
+    const T = s.total;
+    const r86 = plan(T, D, A, 0.86), r75 = plan(T, D, A, 0.75);
+    const live = D > 0 ? Math.round(A / D * 100) : 0;
+    const cls = live >= 86 ? 'ok' : live >= 75 ? 'warn' : 'bad';
+    html += `<tr><td>${esc(s.name)}</td><td>${T}</td>
+      <td><input type="number" min="0" value="${D}" data-s="${esc(s.name)}" data-f="done"></td>
       <td>${r86.R}</td>
-      <td><input type="number" min="0" value="${A}" data-i="${i}" data-f="1"></td>
+      <td><input type="number" min="0" value="${A}" data-s="${esc(s.name)}" data-f="attended"></td>
       <td><span class="pill live ${cls}">${live}%</span></td>
       <td>${cell(r86)}</td><td>${skipCell(r86)}</td><td>${cell(r75)}</td><td>${skipCell(r75)}</td></tr>`;
   });
-  document.getElementById("tbl").innerHTML = html;
-  document.querySelectorAll("#tbl input").forEach(inp=>{
-    inp.onchange = ()=>{
-      const v = Math.max(0, parseInt(inp.value,10) || 0);
-      state.users[current][inp.dataset.i][inp.dataset.f] = v;
-      saveState(state); render();
+  tbl.innerHTML = html;
+  tbl.querySelectorAll("input").forEach(inp => {
+    inp.onchange = async () => {
+      const v = Math.max(0, parseInt(inp.value, 10) || 0);
+      const row = users[current][inp.dataset.s] ||= { done: 0, attended: 0 };
+      row[inp.dataset.f] = v;
+      render();                                   // instant local update
+      await saveEntry(current, inp.dataset.s, row.done, row.attended);
     };
   });
 }
@@ -128,17 +163,38 @@ function render(){
 /* ---------- Totals dialog ---------- */
 const dlg = document.getElementById("totDlg");
 function openTotals(){
-  document.getElementById("totList").innerHTML = SUBJECTS.map((s,i)=>
-    `<div class="row"><label for="t${i}">${s}</label><input id="t${i}" type="number" min="0" value="${state.totals[s]}"></div>`).join("");
+  document.getElementById("totList").innerHTML = subjects.map((s, i) =>
+    `<div class="row"><label for="t${i}">${esc(s.name)}</label><input id="t${i}" type="number" min="0" value="${s.total}"></div>`).join("");
   dlg.showModal();
 }
-document.getElementById("totCancel").onclick = ()=>dlg.close();
-document.getElementById("totSave").onclick = ()=>{
-  SUBJECTS.forEach((s,i)=>{ state.totals[s] = Math.max(0, parseInt(document.getElementById("t"+i).value,10) || 0); });
-  saveState(state); dlg.close(); render();
+document.getElementById("totCancel").onclick = () => dlg.close();
+document.getElementById("totSave").onclick = async () => {
+  const map = {};
+  subjects.forEach((s, i) => { map[s.name] = Math.max(0, parseInt(document.getElementById("t" + i).value, 10) || 0); s.total = map[s.name]; });
+  dlg.close(); render();
+  await saveTotals(map);
 };
 
-render();
+/* ---------- Boot + realtime ---------- */
+let timer;
+function onRemoteChange(){
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const a = document.activeElement;
+    if (a && a.tagName === "INPUT") return;       // don't disturb someone who is typing
+    if (dlg.open) return;
+    if (await loadAll()) render();
+  }, 300);
+}
+
+(async function init(){
+  if (SUPABASE_URL.includes("YOUR-PROJECT")) { setStatus("Add your Supabase URL and anon key in the script first."); return; }
+  if (await loadAll()) render();
+  sb.channel("planner")
+    .on("postgres_changes", { event: "*", schema: "public", table: "entries" }, onRemoteChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "subjects" }, onRemoteChange)
+    .subscribe();
+})();
 </script>
 </body>
 </html>
