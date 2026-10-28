@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Planner</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1b1f24;--muted:#6b7280;--line:#e5e7eb;--accent:#4f46e5;--ok:#15803d;--okbg:#dcfce7;--warn:#b45309;--warnbg:#fef3c7;--bad:#b91c1c;--badbg:#fee2e2}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e8eaed;--muted:#9aa1ab;--line:#2a2f38;--accent:#818cf8;--ok:#86efac;--okbg:#14301f;--warn:#fcd34d;--warnbg:#3a2c0b;--bad:#fca5a5;--badbg:#3b1616}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:1100px;margin-inline:auto}
+h1{font-size:20px;margin:4px 0 12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:999px}
+button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.spacer{flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th,td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600}
+th.grp{color:var(--accent);border-bottom:1px solid var(--line)}
+td:first-child,th:first-child{text-align:left;padding-left:14px;font-weight:500}
+tr:last-child td{border-bottom:0}
+input[type=number]{width:62px;font:inherit;text-align:center;padding:5px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.pill{display:inline-block;min-width:30px;padding:2px 9px;border-radius:999px;font-weight:600}
+.ok{background:var(--okbg);color:var(--ok)}.warn{background:var(--warnbg);color:var(--warn)}.bad{background:var(--badbg);color:var(--bad)}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--text);padding:18px;width:min(420px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0}
+.live{font-weight:600}
+</style>
+</head>
+<body>
+<h1>Attendance Planner</h1>
+<div class="bar" id="bar"></div>
+<div class="card"><table id="tbl"></table></div>
+<p class="note">Attend = classes you still must attend from the remaining ones. Skip = classes you can miss. Anyone can edit Done / Attended in the table. “Update totals” changes the total classes for every user.</p>
+
+<dialog id="totDlg">
+  <h3 style="margin-top:0">Update total classes</h3>
+  <div id="totList"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+    <button id="totCancel">Cancel</button><button class="primary" id="totSave">Save</button>
+  </div>
+</dialog>
+
+<script>
+/* ---------- Storage layer (swap these two functions for Firebase/Supabase to share data between devices) ---------- */
+const KEY = "attendance-planner-v1";
+function loadState(){ try{ const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
+function saveState(s){ try{ localStorage.setItem(KEY, JSON.stringify(s)); }catch(e){} }
+
+/* ---------- Seed data (from your spreadsheet) ---------- */
+const SUBJECTS = ["Advanced Databases","Professional Elective","Theory of Computation","Software Engineering","Deep Learning","Aptitude - 3","Soft Skills","Problem Solving","Software Engg Lab"];
+const seed = () => ({
+  totals: {"Advanced Databases":59,"Professional Elective":74,"Theory of Computation":49,"Software Engineering":35,"Deep Learning":63,"Aptitude - 3":30,"Soft Skills":26,"Problem Solving":61,"Software Engg Lab":24},
+  // per user: [done, attended] in the same order as SUBJECTS
+  users: {
+    Pratik:[[44,41],[60,50],[37,34],[26,25],[46,42],[22,20],[20,17],[49,49],[18,16]],
+    Ram:   [[44,38],[60,58],[38,37],[26,23],[46,42],[22,20],[19,17],[47,43],[18,16]],
+    Prince:[[44,41],[58,48],[37,34],[25,24],[46,42],[22,20],[19,16],[47,47],[18,16]],
+    Navya: [[44,42],[60,56],[37,35],[26,24],[46,43],[22,22],[19,18],[47,47],[18,16]]
+  }
+});
+let state = loadState() || seed();
+let current = Object.keys(state.users)[0];
+
+/* ---------- Core calculation ---------- */
+function plan(T, D, A, p){
+  const R = Math.max(T - D, 0);
+  const req = Math.ceil(p * T - 1e-9);
+  const need = req - A;
+  const must = Math.max(need, 0);
+  const skip = Math.max(R - must, 0);
+  return { R, must, skip, impossible: need > R };
+}
+const cell = (r) => r.impossible ? `<span class="pill bad" title="Target not reachable">✕</span>` : `<span class="pill ${r.must? 'warn':'ok'}">${r.must}</span>`;
+const skipCell = (r) => `<span class="pill ${r.impossible?'bad':'ok'}">${r.impossible?0:r.skip}</span>`;
+
+/* ---------- Render ---------- */
+function render(){
+  const bar = document.getElementById("bar");
+  bar.innerHTML = "";
+  Object.keys(state.users).forEach(u=>{
+    const b = document.createElement("button");
+    b.textContent = u; if(u===current) b.className="active";
+    b.onclick = ()=>{ current=u; render(); };
+    bar.appendChild(b);
+  });
+  const add = document.createElement("button"); add.textContent="+ Add user";
+  add.onclick = ()=>{
+    const n = (prompt("New user name?")||"").trim();
+    if(!n || state.users[n]) return;
+    state.users[n] = SUBJECTS.map(()=>[0,0]); current=n; saveState(state); render();
+  };
+  bar.appendChild(add);
+  const sp = document.createElement("div"); sp.className="spacer"; bar.appendChild(sp);
+  const tb = document.createElement("button"); tb.className="primary"; tb.textContent="Update total classes";
+  tb.onclick = openTotals; bar.appendChild(tb);
+
+  const rows = state.users[current];
+  let html = `<tr><th rowspan="2">Subject</th><th rowspan="2">Total</th><th rowspan="2">Done</th><th rowspan="2">Remaining</th><th rowspan="2">Attended</th><th rowspan="2">Live %</th><th class="grp" colspan="2">For 86%</th><th class="grp" colspan="2">For 75%</th></tr>
+  <tr><th>Attend</th><th>Skip</th><th>Attend</th><th>Skip</th></tr>`;
+  SUBJECTS.forEach((s,i)=>{
+    const [D,A] = rows[i]; const T = state.totals[s];
+    const r86 = plan(T,D,A,0.86), r75 = plan(T,D,A,0.75);
+    const live = D>0 ? Math.round(A/D*100) : 0;
+    const cls = live>=86?'ok':live>=75?'warn':'bad';
+    html += `<tr><td>${s}</td><td>${T}</td>
+      <td><input type="number" min="0" value="${D}" data-i="${i}" data-f="0"></td>
+      <td>${r86.R}</td>
+      <td><input type="number" min="0" value="${A}" data-i="${i}" data-f="1"></td>
+      <td><span class="pill live ${cls}">${live}%</span></td>
+      <td>${cell(r86)}</td><td>${skipCell(r86)}</td><td>${cell(r75)}</td><td>${skipCell(r75)}</td></tr>`;
+  });
+  document.getElementById("tbl").innerHTML = html;
+  document.querySelectorAll("#tbl input").forEach(inp=>{
+    inp.onchange = ()=>{
+      const v = Math.max(0, parseInt(inp.value,10) || 0);
+      state.users[current][inp.dataset.i][inp.dataset.f] = v;
+      saveState(state); render();
+    };
+  });
+}
+
+/* ---------- Totals dialog ---------- */
+const dlg = document.getElementById("totDlg");
+function openTotals(){
+  document.getElementById("totList").innerHTML = SUBJECTS.map((s,i)=>
+    `<div class="row"><label for="t${i}">${s}</label><input id="t${i}" type="number" min="0" value="${state.totals[s]}"></div>`).join("");
+  dlg.showModal();
+}
+document.getElementById("totCancel").onclick = ()=>dlg.close();
+document.getElementById("totSave").onclick = ()=>{
+  SUBJECTS.forEach((s,i)=>{ state.totals[s] = Math.max(0, parseInt(document.getElementById("t"+i).value,10) || 0); });
+  saveState(state); dlg.close(); render();
+};
+
+render();
+</script>
+</body>
+</html>
