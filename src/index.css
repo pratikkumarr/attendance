@@ -61,39 +61,39 @@
   }
 
   .dark {
-    /* Background: #14170D */
-    --background: 78 27.8% 7.1%;
+    /* Background: deep blackish tone with subtle olive undertone */
+    --background: 84 20% 4%;
     /* Text: #EEF0E1 */
     --foreground: 68 33.3% 91.2%;
 
-    /* Surface / cards: #1E2314 */
-    --card: 80 27.3% 10.8%;
+    /* Surface / cards: elevated blackish surface */
+    --card: 84 20% 7.5%;
     --card-foreground: 68 33.3% 91.2%;
 
-    --popover: 80 27.3% 10.8%;
+    --popover: 84 20% 7.5%;
     --popover-foreground: 68 33.3% 91.2%;
 
-    /* Primary button: Olive-400 #9DAD57 with #14170D text */
+    /* Primary button: Olive-400 #9DAD57 with dark text */
     --primary: 71.2 34.4% 51%;
-    --primary-foreground: 78 27.8% 7.1%;
+    --primary-foreground: 84 20% 4%;
 
-    --secondary: 78 24.2% 16%;
+    --secondary: 80 18% 12%;
     --secondary-foreground: 68 33.3% 91.2%;
 
     /* Muted text: #A3AA8A */
-    --muted: 78 24.2% 15%;
+    --muted: 80 18% 11%;
     --muted-foreground: 73.1 15.8% 60.4%;
 
-    --accent: 78 24.2% 16%;
+    --accent: 80 18% 12%;
     --accent-foreground: 68 33.3% 91.2%;
 
     /* Destructive / Error: #B3402F */
     --destructive: 7.7 58.4% 44.3%;
     --destructive-foreground: 68 33.3% 91.2%;
 
-    /* Border: #343B24 */
-    --border: 78.3 24.2% 18.6%;
-    --input: 78.3 24.2% 18.6%;
+    /* Border: deep dark border */
+    --border: 82 18% 15%;
+    --input: 82 18% 15%;
     --ring: 71.2 34.4% 51%;
 
     /* Semantic traffic-light status colors (Dark mode) */
