@@ -137,7 +137,7 @@ export function SubjectDetail() {
         <Card>
           <CardContent className="p-4">
             <span className="text-xs text-muted-foreground font-medium">Classes Attended</span>
-            <p className="text-2xl font-bold tabular-nums mt-1 text-emerald-600 dark:text-emerald-400">
+            <p className="text-2xl font-bold tabular-nums mt-1 text-safe">
               {attended}
             </p>
           </CardContent>
@@ -190,7 +190,7 @@ export function SubjectDetail() {
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Maximum skippable classes:</span>
-              <strong className="tabular-nums text-emerald-600 dark:text-emerald-400">
+              <strong className="tabular-nums text-safe">
                 {plan.at86.canSkip} classes
               </strong>
             </div>
@@ -214,7 +214,7 @@ export function SubjectDetail() {
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-muted-foreground">Maximum skippable classes:</span>
-              <strong className="tabular-nums text-amber-600 dark:text-amber-400">
+              <strong className="tabular-nums text-attend">
                 {plan.at75.canSkip} classes
               </strong>
             </div>
@@ -236,10 +236,10 @@ export function SubjectDetail() {
               className={cn(
                 "text-base font-bold tabular-nums",
                 projectedPct >= 86
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-safe"
                   : projectedPct >= 75
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-rose-600 dark:text-rose-400"
+                  ? "text-attend"
+                  : "text-danger"
               )}
             >
               Final: {formatPct(projectedPct, 1)}

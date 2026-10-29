@@ -50,7 +50,7 @@ export function SubjectTable({ userName, subjects, onUpdate }: SubjectTableProps
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
                   {hasWarning && (
-                    <span className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                    <span className="flex items-center gap-1 text-[11px] text-attend mt-0.5">
                       <AlertTriangle className="h-3 w-3 shrink-0" />
                       {s.attended > s.done ? 'Attended > done' : 'Done > total'}
                     </span>
@@ -69,10 +69,10 @@ export function SubjectTable({ userName, subjects, onUpdate }: SubjectTableProps
                   <span
                     className={
                       plan.livePct >= 86
-                        ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                        ? 'font-bold text-safe'
                         : plan.livePct >= 75
-                        ? 'font-bold text-amber-600 dark:text-amber-400'
-                        : 'font-bold text-rose-600 dark:text-rose-400'
+                        ? 'font-bold text-attend'
+                        : 'font-bold text-danger'
                     }
                   >
                     {formatPct(plan.livePct, 1)}

@@ -25,9 +25,9 @@ export function KpiRow({
   atRiskCount,
   className,
 }: KpiRowProps) {
-  let overallColor = "text-rose-600 dark:text-rose-400"
-  if (overallPct >= 86) overallColor = "text-emerald-600 dark:text-emerald-400"
-  else if (overallPct >= 75) overallColor = "text-amber-600 dark:text-amber-400"
+  let overallColor = "text-danger"
+  if (overallPct >= 86) overallColor = "text-safe"
+  else if (overallPct >= 75) overallColor = "text-attend"
 
   return (
     <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3", className)}>
@@ -72,10 +72,10 @@ export function KpiRow({
         <CardContent className="p-4 flex flex-col justify-between h-full">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
             <span className="text-xs font-medium">Safe @ 86% Target</span>
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <ShieldCheck className="h-4 w-4 text-safe" />
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-emerald-600 dark:text-emerald-400">
+            <span className="text-2xl font-bold tracking-tight tabular-nums text-safe">
               {safe86Count}
             </span>
             <span className="text-xs text-muted-foreground font-normal">subjects</span>
@@ -91,10 +91,10 @@ export function KpiRow({
         <CardContent className="p-4 flex flex-col justify-between h-full">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
             <span className="text-xs font-medium">Safe @ 75% Target</span>
-            <ShieldCheck className="h-4 w-4 text-amber-500" />
+            <ShieldCheck className="h-4 w-4 text-attend" />
           </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-bold tracking-tight tabular-nums text-amber-600 dark:text-amber-400">
+            <span className="text-2xl font-bold tracking-tight tabular-nums text-attend">
               {safe75Count}
             </span>
             <span className="text-xs text-muted-foreground font-normal">subjects</span>
@@ -110,12 +110,12 @@ export function KpiRow({
         <CardContent className="p-4 flex flex-col justify-between h-full">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
             <span className="text-xs font-medium">At Risk / Action</span>
-            <AlertTriangle className="h-4 w-4 text-rose-500" />
+            <AlertTriangle className="h-4 w-4 text-danger" />
           </div>
           <div className="flex items-baseline gap-1 mt-1">
             <span className={cn(
               "text-2xl font-bold tracking-tight tabular-nums",
-              atRiskCount > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
+              atRiskCount > 0 ? "text-danger" : "text-muted-foreground"
             )}>
               {atRiskCount}
             </span>

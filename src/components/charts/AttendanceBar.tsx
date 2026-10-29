@@ -57,21 +57,21 @@ export function AttendanceBar({ data, className }: AttendanceBarProps) {
             {/* Target lines at 75% and 86% */}
             <ReferenceLine
               y={75}
-              stroke="#f59e0b"
+              stroke="#D9A441"
               strokeDasharray="3 3"
-              label={{ value: '75%', fill: '#f59e0b', fontSize: 10, position: 'right' }}
+              label={{ value: '75%', fill: '#D9A441', fontSize: 10, position: 'right' }}
             />
             <ReferenceLine
               y={86}
-              stroke="#10b981"
+              stroke="#4C8C4A"
               strokeDasharray="3 3"
-              label={{ value: '86%', fill: '#10b981', fontSize: 10, position: 'right' }}
+              label={{ value: '86%', fill: '#4C8C4A', fontSize: 10, position: 'right' }}
             />
             <Bar dataKey="livePct" radius={[4, 4, 0, 0]}>
               {data.map((entry, index) => {
-                let fill = '#ef4444' // red
-                if (entry.livePct >= 86) fill = '#10b981' // green
-                else if (entry.livePct >= 75) fill = '#f59e0b' // yellow
+                let fill = '#B3402F' // error
+                if (entry.livePct >= 86) fill = '#4C8C4A' // success
+                else if (entry.livePct >= 75) fill = '#D9A441' // mustard
                 return <Cell key={`cell-${index}`} fill={fill} />
               })}
             </Bar>

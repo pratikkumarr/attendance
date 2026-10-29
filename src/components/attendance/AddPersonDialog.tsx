@@ -78,7 +78,7 @@ export function AddPersonDialog({
           </div>
 
           {error && (
-            <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-2 rounded-md">
+            <div className="flex items-center gap-1.5 text-xs text-danger bg-danger/10 p-2 rounded-md border border-danger/20">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>

@@ -14,15 +14,15 @@ export function AttendanceProgressBar({
 }: AttendanceProgressBarProps) {
   const clampedValue = Math.min(Math.max(value, 0), 100)
 
-  // Color code dynamically:
-  // >= 86% -> Emerald green
-  // >= 75% -> Amber yellow
-  // < 75% -> Rose red
-  let barColor = "bg-rose-500 dark:bg-rose-600"
+  // Color code dynamically using custom semantic status colors:
+  // >= 86% -> Safe green (#4C8C4A)
+  // >= 75% -> Mustard yellow (#D9A441)
+  // < 75% -> Error red (#B3402F)
+  let barColor = "bg-danger"
   if (value >= 86) {
-    barColor = "bg-emerald-500 dark:bg-emerald-500"
+    barColor = "bg-safe"
   } else if (value >= 75) {
-    barColor = "bg-amber-500 dark:bg-amber-500"
+    barColor = "bg-attend"
   }
 
   return (

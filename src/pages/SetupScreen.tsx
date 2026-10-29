@@ -7,7 +7,7 @@ export function SetupScreen() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
       <Card className="max-w-lg w-full border-border/80 shadow-lg">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mb-2">
+          <div className="mx-auto h-12 w-12 rounded-full bg-attend/15 flex items-center justify-center text-attend mb-2">
             <Key className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl font-bold">Supabase Configuration Required</CardTitle>
@@ -35,8 +35,8 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOi...`}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 p-3 text-xs rounded-lg border border-emerald-500/20 bg-emerald-50/30 text-emerald-800 dark:text-emerald-300">
-            <AlertCircle className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-center gap-2 p-3 text-xs rounded-lg border border-safe/30 bg-safe/10 text-safe">
+            <AlertCircle className="h-4 w-4 shrink-0 text-safe" />
             <span>
               <strong>Note:</strong> The anon key is public by design. Security is enforced by Postgres Row-Level Security (RLS). Never use or leak your service_role key.
             </span>

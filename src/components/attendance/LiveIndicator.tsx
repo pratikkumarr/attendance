@@ -17,7 +17,7 @@ export function LiveIndicator({
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium select-none shadow-sm transition-all",
         isConnected
-          ? "border-emerald-500/20 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+          ? "border-safe/30 bg-safe/10 text-safe"
           : "border-muted bg-muted/50 text-muted-foreground",
         className
       )}
@@ -29,12 +29,12 @@ export function LiveIndicator({
     >
       <span className="relative flex h-2 w-2">
         {isConnected && (
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-safe opacity-75" />
         )}
         <span
           className={cn(
             "relative inline-flex rounded-full h-2 w-2",
-            isConnected ? "bg-emerald-500" : "bg-muted-foreground/60"
+            isConnected ? "bg-safe" : "bg-muted-foreground/60"
           )}
         />
       </span>

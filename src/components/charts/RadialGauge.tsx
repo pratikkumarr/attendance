@@ -16,9 +16,9 @@ interface RadialGaugeProps {
 export function RadialGauge({ pct, className }: RadialGaugeProps) {
   const clamped = Math.min(Math.max(pct, 0), 100)
 
-  let fillColor = "#ef4444" // red
-  if (clamped >= 86) fillColor = "#10b981" // emerald
-  else if (clamped >= 75) fillColor = "#f59e0b" // amber
+  let fillColor = "#B3402F" // error
+  if (clamped >= 86) fillColor = "#4C8C4A" // success
+  else if (clamped >= 75) fillColor = "#D9A441" // mustard
 
   const chartData = [{ value: clamped, fill: fillColor }]
 

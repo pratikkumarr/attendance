@@ -14,19 +14,13 @@ import { Button } from "@/components/ui/button"
 import { KpiRow } from "@/components/attendance/KpiRow"
 import { SubjectCard } from "@/components/attendance/SubjectCard"
 import { SubjectTable } from "@/components/attendance/SubjectTable"
-import { InsightsPanel } from "@/components/attendance/InsightsPanel"
 import { WhatIfSimulator } from "@/components/attendance/WhatIfSimulator"
 import { HistoryDrawer } from "@/components/attendance/HistoryDrawer"
-import { AttendanceBar } from "@/components/charts/AttendanceBar"
-import { StackedSubject } from "@/components/charts/StackedSubject"
-import { SkipBudget } from "@/components/charts/SkipBudget"
-import { TrendLine } from "@/components/charts/TrendLine"
-import { RadialGauge } from "@/components/charts/RadialGauge"
 import { useSubjects } from "@/hooks/useSubjects"
 import { useEntries, useUpdateEntry } from "@/hooks/useEntries"
 import { useHistory } from "@/hooks/useHistory"
 import { useUsers } from "@/hooks/useUsers"
-import { planSubject, generateInsights } from "@/lib/plan"
+import { planSubject } from "@/lib/plan"
 import { formatRelativeTime, exportToCsv, formatPct } from "@/lib/format"
 
 export function PersonDashboard() {
@@ -106,18 +100,6 @@ export function PersonDashboard() {
     }
   }, [subjectData])
 
-  // Generate plain language insights sorted by urgency
-  const insights = React.useMemo(() => {
-    return generateInsights(
-      subjectData.map((s) => ({
-        subject: s.name,
-        total: s.total,
-        done: s.done,
-        attended: s.attended,
-      }))
-    )
-  }, [subjectData])
-
   // Handler for updates
   const handleUpdate = async (subject: string, done: number, attended: number) => {
     try {
@@ -178,62 +160,6 @@ export function PersonDashboard() {
     setTimeout(() => setCopiedLink(false), 2000)
     showToast("Shareable profile link copied to clipboard!")
   }
-
-  // Chart datasets preparation
-  const barChartData = React.useMemo(() => {
-    return subjectData.map((s) => {
-      const plan = planSubject(s.total, s.done, s.attended)
-      return {
-        subject: s.name,
-        livePct: plan.livePct,
-      }
-    })
-  }, [subjectData])
-
-  const stackedChartData = React.useMemo(() => {
-    return subjectData.map((s) => {
-      const plan = planSubject(s.total, s.done, s.attended)
-      const missed = Math.max(0, s.done - s.attended)
-      return {
-        subject: s.name,
-        attended: s.attended,
-        missed,
-        remaining: plan.remaining,
-      }
-    })
-  }, [subjectData])
-
-  const skipBudgetData = React.useMemo(() => {
-    return subjectData.map((s) => {
-      const plan = planSubject(s.total, s.done, s.attended)
-      return {
-        subject: s.name,
-        canSkip86: plan.at86.canSkip,
-        canSkip75: plan.at75.canSkip,
-      }
-    })
-  }, [subjectData])
-
-  // Trend data grouped by time
-  const trendChartData = React.useMemo(() => {
-    if (history.length === 0) return []
-    // Group records into points
-    const pointsMap = new Map<string, any>()
-    history.forEach((h) => {
-      const timeLabel = new Date(h.changed_at).toLocaleDateString(undefined, {
-        month: "numeric",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-      const current = pointsMap.get(timeLabel) || { time: timeLabel }
-      if (h.done > 0) {
-        current[h.subject] = (h.attended / h.done) * 100
-      }
-      pointsMap.set(timeLabel, current)
-    })
-    return Array.from(pointsMap.values())
-  }, [history])
 
   if (loadingSubs || loadingEntries) {
     return (
@@ -296,7 +222,7 @@ export function PersonDashboard() {
             onClick={handleShareLink}
             className="h-8 gap-1.5 text-xs"
           >
-            {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Share2 className="h-3.5 w-3.5" />}
+            {copiedLink ? <Check className="h-3.5 w-3.5 text-safe" /> : <Share2 className="h-3.5 w-3.5" />}
             {copiedLink ? "Copied" : "Share"}
           </Button>
 
@@ -359,9 +285,6 @@ export function PersonDashboard() {
         atRiskCount={atRiskCount}
       />
 
-      {/* Insights Panel */}
-      <InsightsPanel insights={insights} />
-
       {/* Subject Statistics Display: Cards or Table */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -398,20 +321,6 @@ export function PersonDashboard() {
 
       {/* What-If Semester Simulator */}
       <WhatIfSimulator subjects={subjectData} />
-
-      {/* Recharts Data Visualizations Grid */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AttendanceBar data={barChartData} />
-        <RadialGauge pct={overallPct} />
-        <StackedSubject data={stackedChartData} />
-        <SkipBudget data={skipBudgetData} />
-        <div className="lg:col-span-2">
-          <TrendLine
-            data={trendChartData}
-            subjects={subjectData.map((s) => s.name)}
-          />
-        </div>
-      </section>
 
       {/* Audit History Drawer */}
       <HistoryDrawer

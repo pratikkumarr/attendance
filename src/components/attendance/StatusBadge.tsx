@@ -19,7 +19,7 @@ export function StatusBadge({
   if (status === 'SAFE') {
     return (
       <Badge variant="safe" className={className}>
-        {showIcon && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+        {showIcon && <CheckCircle2 className="h-3.5 w-3.5 text-safe" />}
         <span>{label || 'Safe'}</span>
       </Badge>
     )
@@ -28,7 +28,7 @@ export function StatusBadge({
   if (status === 'ATTEND') {
     return (
       <Badge variant="attend" className={className}>
-        {showIcon && <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
+        {showIcon && <Clock className="h-3.5 w-3.5 text-attend" />}
         <span>{label || 'Attend'}</span>
       </Badge>
     )
@@ -36,7 +36,7 @@ export function StatusBadge({
 
   return (
     <Badge variant="impossible" className={className}>
-      {showIcon && <XCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />}
+      {showIcon && <XCircle className="h-3.5 w-3.5 text-destructive" />}
       <span>{label || 'Impossible'}</span>
     </Badge>
   )

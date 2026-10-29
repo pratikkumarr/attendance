@@ -15,9 +15,9 @@ export function InsightsPanel({ insights, className }: InsightsPanelProps) {
 
   if (insights.length === 0) {
     return (
-      <Card className={cn("border-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/10", className)}>
-        <CardContent className="flex items-center gap-3 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      <Card className={cn("border-safe/30 bg-safe/10", className)}>
+        <CardContent className="flex items-center gap-3 p-4 text-sm text-safe">
+          <CheckCircle2 className="h-5 w-5 text-safe shrink-0" />
           <span>All subjects look great! You are comfortably safe across all targets.</span>
         </CardContent>
       </Card>
@@ -30,26 +30,26 @@ export function InsightsPanel({ insights, className }: InsightsPanelProps) {
   const getSeverityIcon = (sev: InsightSeverity) => {
     switch (sev) {
       case 'danger':
-        return <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+        return <AlertCircle className="h-4 w-4 text-danger shrink-0 mt-0.5" />
       case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        return <AlertTriangle className="h-4 w-4 text-attend shrink-0 mt-0.5" />
       case 'safe':
-        return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+        return <CheckCircle2 className="h-4 w-4 text-safe shrink-0 mt-0.5" />
       default:
-        return <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+        return <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
     }
   }
 
   const getSeverityStyle = (sev: InsightSeverity) => {
     switch (sev) {
       case 'danger':
-        return "border-rose-500/20 bg-rose-50/50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-200"
+        return "border-danger/25 bg-danger/10 text-danger"
       case 'warning':
-        return "border-amber-500/20 bg-amber-50/50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200"
+        return "border-attend/25 bg-attend/10 text-attend"
       case 'safe':
-        return "border-emerald-500/20 bg-emerald-50/50 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-200"
+        return "border-safe/25 bg-safe/10 text-safe"
       default:
-        return "border-blue-500/20 bg-blue-50/50 text-blue-900 dark:bg-blue-950/20 dark:text-blue-200"
+        return "border-primary/25 bg-primary/10 text-primary"
     }
   }
 

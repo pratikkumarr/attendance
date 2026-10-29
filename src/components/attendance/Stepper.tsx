@@ -74,7 +74,7 @@ export function Stepper({
       <div
         className={cn(
           "flex items-center rounded-lg border bg-background/50 shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring",
-          warning && "border-amber-500/50 bg-amber-500/5"
+          warning && "border-attend/50 bg-attend/5"
         )}
       >
         <Button

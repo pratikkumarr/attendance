@@ -32,16 +32,16 @@ export function TrendLine({ data, subjects, className }: TrendLineProps) {
     )
   }
 
-  // Pre-defined palette for multiple subject lines
+  // Pre-defined palette for multiple subject lines harmonized with warm earthy theme
   const colors = [
-    '#3b82f6', // blue (overall)
-    '#10b981', // emerald
-    '#f59e0b', // amber
+    '#C2602F', // terracotta (overall / accent)
+    '#4C8C4A', // success green
+    '#D9A441', // mustard
+    '#9DAD57', // olive-400
+    '#6B705A', // muted olive
+    '#B3402F', // error / rust
     '#8b5cf6', // purple
-    '#ec4899', // pink
     '#06b6d4', // cyan
-    '#f97316', // orange
-    '#14b8a6', // teal
   ]
 
   return (
@@ -59,7 +59,7 @@ export function TrendLine({ data, subjects, className }: TrendLineProps) {
             onClick={() => toggleSubject('overall')}
             className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
               selectedSubjects.includes('overall')
-                ? 'bg-blue-500 text-white border-blue-600'
+                ? 'bg-primary text-primary-foreground border-primary'
                 : 'bg-muted text-muted-foreground'
             }`}
           >
@@ -117,7 +117,7 @@ export function TrendLine({ data, subjects, className }: TrendLineProps) {
                   type="monotone"
                   dataKey="overall"
                   name="Overall"
-                  stroke="#3b82f6"
+                  stroke="#C2602F"
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                   activeDot={{ r: 5 }}

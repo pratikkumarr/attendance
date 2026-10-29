@@ -75,7 +75,7 @@ export function SubjectCard({
 
         {/* Warning pill if attended > done or done > total */}
         {hasWarning && (
-          <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 p-2 rounded-md border border-amber-500/20">
+          <div className="flex items-center gap-1.5 text-xs text-attend bg-attend/10 p-2 rounded-md border border-attend/30">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>
               {attended > done

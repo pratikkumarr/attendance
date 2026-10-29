@@ -73,10 +73,10 @@ export function WhatIfSimulator({ subjects, className }: WhatIfSimulatorProps) {
               className={cn(
                 "text-base tabular-nums font-bold",
                 projectedOverallPct >= 86
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-safe"
                   : projectedOverallPct >= 75
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-rose-600 dark:text-rose-400"
+                  ? "text-attend"
+                  : "text-danger"
               )}
             >
               {formatPct(projectedOverallPct, 1)}
@@ -136,10 +136,10 @@ export function WhatIfSimulator({ subjects, className }: WhatIfSimulatorProps) {
                       className={cn(
                         "text-sm font-bold",
                         projectedPct >= 86
-                          ? "text-emerald-600 dark:text-emerald-400"
+                          ? "text-safe"
                           : projectedPct >= 75
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-rose-600 dark:text-rose-400"
+                          ? "text-attend"
+                          : "text-danger"
                       )}
                     >
                       {formatPct(projectedPct, 1)}

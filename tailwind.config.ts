@@ -11,6 +11,21 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        terracotta: {
+          DEFAULT: '#C2602F',
+          hover: '#ab5225',
+          foreground: '#FAF8F0',
+        },
+        mustard: {
+          DEFAULT: '#D9A441',
+          hover: '#c49132',
+          foreground: '#1F2315',
+        },
+        olive: {
+          400: '#9DAD57',
+          hover: '#8b9b47',
+          text: '#14170D',
+        },
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',

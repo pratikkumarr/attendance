@@ -4,91 +4,113 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 224 71.4% 4.1%;
+    /* Cream background: #FAF8F0 */
+    --background: 48 50% 96.1%;
+    /* Ink body text: #1F2315 */
+    --foreground: 77.1 25% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    /* Light card / surface: clean cream surface slightly elevated */
+    --card: 48 45% 98%;
+    --card-foreground: 77.1 25% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
+    --popover: 48 45% 98%;
+    --popover-foreground: 77.1 25% 11%;
 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary / Accent CTA: Terracotta #C2602F */
+    --primary: 20 61% 47.3%;
+    --primary-foreground: 48 50% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary / Warm muted container */
+    --secondary: 48 20% 92%;
+    --secondary-foreground: 77.1 25% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted text: #6B705A */
+    --muted: 48 22% 91%;
+    --muted-foreground: 73.6 10.9% 39.6%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent: warm mustard #D9A441 / terracotta tones */
+    --accent: 48 25% 90%;
+    --accent-foreground: 77.1 25% 11%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Error: #B3402F */
+    --destructive: 7.7 58.4% 44.3%;
+    --destructive-foreground: 48 50% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    /* Border: #E7E4D6 */
+    --border: 49.4 26.2% 87.3%;
+    --input: 49.4 26.2% 87.3%;
+    --ring: 20 61% 47.3%;
 
     --radius: 0.75rem;
 
     /* Semantic traffic-light status colors */
-    --safe: 142 71% 45%;
-    --safe-foreground: 355 100% 97%;
-    --safe-subtle: 142 76% 96%;
+    /* Success: #4C8C4A */
+    --safe: 118.2 30.8% 42%;
+    --safe-foreground: 48 50% 98%;
+    --safe-subtle: 118 35% 94%;
 
-    --attend: 38 92% 50%;
-    --attend-foreground: 48 96% 12%;
-    --attend-subtle: 48 96% 96%;
+    /* Attend: Mustard #D9A441 */
+    --attend: 39.1 66.7% 55.3%;
+    --attend-foreground: 77.1 25% 11%;
+    --attend-subtle: 40 60% 93%;
 
-    --danger: 0 84% 60%;
-    --danger-foreground: 0 0% 100%;
-    --danger-subtle: 0 93% 97%;
+    /* Danger / Error: #B3402F */
+    --danger: 7.7 58.4% 44.3%;
+    --danger-foreground: 48 50% 98%;
+    --danger-subtle: 8 60% 94%;
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
+    /* Background: #14170D */
+    --background: 78 27.8% 7.1%;
+    /* Text: #EEF0E1 */
+    --foreground: 68 33.3% 91.2%;
 
-    --card: 224 71.4% 7%;
-    --card-foreground: 210 20% 98%;
+    /* Surface / cards: #1E2314 */
+    --card: 80 27.3% 10.8%;
+    --card-foreground: 68 33.3% 91.2%;
 
-    --popover: 224 71.4% 7%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 80 27.3% 10.8%;
+    --popover-foreground: 68 33.3% 91.2%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary button: Olive-400 #9DAD57 with #14170D text */
+    --primary: 71.2 34.4% 51%;
+    --primary-foreground: 78 27.8% 7.1%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 78 24.2% 16%;
+    --secondary-foreground: 68 33.3% 91.2%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted text: #A3AA8A */
+    --muted: 78 24.2% 15%;
+    --muted-foreground: 73.1 15.8% 60.4%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 78 24.2% 16%;
+    --accent-foreground: 68 33.3% 91.2%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive / Error: #B3402F */
+    --destructive: 7.7 58.4% 44.3%;
+    --destructive-foreground: 68 33.3% 91.2%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Border: #343B24 */
+    --border: 78.3 24.2% 18.6%;
+    --input: 78.3 24.2% 18.6%;
+    --ring: 71.2 34.4% 51%;
 
     /* Semantic traffic-light status colors (Dark mode) */
-    --safe: 142 71% 45%;
-    --safe-foreground: 0 0% 100%;
-    --safe-subtle: 142 80% 12%;
+    /* Success: #4C8C4A */
+    --safe: 118.2 30.8% 46%;
+    --safe-foreground: 68 33.3% 95%;
+    --safe-subtle: 118 28% 14%;
 
-    --attend: 38 92% 50%;
-    --attend-foreground: 0 0% 100%;
-    --attend-subtle: 40 80% 12%;
+    /* Attend: Mustard #D9A441 */
+    --attend: 39.1 66.7% 55.3%;
+    --attend-foreground: 78 27.8% 7.1%;
+    --attend-subtle: 39 40% 15%;
 
-    --danger: 0 84% 60%;
-    --danger-foreground: 0 0% 100%;
-    --danger-subtle: 0 75% 15%;
+    /* Danger: #B3402F */
+    --danger: 7.7 58.4% 48%;
+    --danger-foreground: 68 33.3% 95%;
+    --danger-subtle: 8 45% 15%;
   }
 }
 

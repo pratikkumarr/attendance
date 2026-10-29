@@ -124,7 +124,7 @@ export function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 rounded-xl border bg-gradient-to-r from-primary/5 via-accent/10 to-transparent">
           {bestPerson && (
             <div className="flex items-center gap-3 p-2.5 rounded-lg bg-card/60 border border-border/50">
-              <div className="h-9 w-9 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <div className="h-9 w-9 rounded-full bg-attend/15 flex items-center justify-center text-attend">
                 <Trophy className="h-5 w-5" />
               </div>
               <div>
@@ -133,7 +133,7 @@ export function Home() {
                 </span>
                 <p className="text-sm font-bold flex items-center gap-1.5">
                   <span>{bestPerson.name}</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-extrabold tabular-nums">
+                  <span className="text-safe font-extrabold tabular-nums">
                     ({formatPct(bestPerson.overallPct, 1)})
                   </span>
                 </p>
@@ -143,7 +143,7 @@ export function Home() {
 
           {mostRelaxedPerson && (
             <div className="flex items-center gap-3 p-2.5 rounded-lg bg-card/60 border border-border/50">
-              <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+              <div className="h-9 w-9 rounded-full bg-safe/15 flex items-center justify-center text-safe">
                 <Award className="h-5 w-5" />
               </div>
               <div>

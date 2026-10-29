@@ -154,7 +154,7 @@ export function Totals() {
                   <td className="py-3.5 px-4 font-semibold text-foreground">
                     {s.name}
                     {isLowerThanDone && (
-                      <span className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-normal mt-0.5">
+                      <span className="flex items-center gap-1 text-[11px] text-attend font-normal mt-0.5">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
                         Warning: Lower than highest recorded classes done ({meta.maxDone})
                       </span>
@@ -228,7 +228,7 @@ export function Totals() {
           </form>
 
           {addError && (
-            <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">
+            <p className="text-xs text-danger mt-2">
               {addError}
             </p>
           )}
