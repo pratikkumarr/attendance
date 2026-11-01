@@ -11,6 +11,36 @@ import type {
 
 const API_BASE = '/api/cybervidya'
 
+async function safeExtractResponse(response: Response, defaultAction: string) {
+  let json: any = null
+  let rawText = ''
+
+  try {
+    rawText = await response.text()
+    json = JSON.parse(rawText)
+  } catch {
+    json = null
+  }
+
+  if (!response.ok) {
+    const errorMsg =
+      json?.error ||
+      json?.message ||
+      json?.error?.reason ||
+      (rawText && rawText.length < 150 ? rawText : null) ||
+      `${defaultAction} failed with HTTP status ${response.status}.`
+
+    return {
+      success: false,
+      error: errorMsg,
+      isHttpError: true,
+      status: response.status,
+    }
+  }
+
+  return json || { success: true }
+}
+
 /**
  * Initiates authentication with CyberVidya and requests an OTP to the student's email.
  */
@@ -19,23 +49,38 @@ export async function clientLogin(
   password: string,
   mode: PortalMode = 'live',
 ): Promise<LoginResponseBody> {
-  const response = await fetch(`${API_BASE}?action=login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      username: username.trim(),
-      password: password.trim(),
-      mode,
-    }),
-  })
+  try {
+    const response = await fetch(`${API_BASE}?action=login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username.trim(),
+        password: password.trim(),
+        mode,
+      }),
+    })
 
-  const json = (await response.json().catch(() => ({}))) as LoginResponseBody
-  if (!response.ok && !json.error) {
-    throw new Error(`Authentication request failed with status ${response.status}`)
+    const data = await safeExtractResponse(response, 'Authentication')
+    if (data.isHttpError) {
+      return {
+        success: false,
+        requiresOtp: false,
+        error: data.error,
+      }
+    }
+    return data as LoginResponseBody
+  } catch (err: any) {
+    return {
+      success: false,
+      requiresOtp: false,
+      error:
+        err?.message?.includes('fetch') || err?.code === 'ENOTFOUND'
+          ? 'Network error: Could not connect to API server.'
+          : err?.message || 'Authentication request failed.',
+    }
   }
-  return json
 }
 
 /**
@@ -46,23 +91,33 @@ export async function clientVerifyOtp(
   otp: string,
   mode: PortalMode = 'live',
 ): Promise<VerifyOtpResponseBody> {
-  const response = await fetch(`${API_BASE}?action=verify-otp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      transactionId: transactionId.trim(),
-      otp: otp.trim(),
-      mode,
-    }),
-  })
+  try {
+    const response = await fetch(`${API_BASE}?action=verify-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transactionId: transactionId.trim(),
+        otp: otp.trim(),
+        mode,
+      }),
+    })
 
-  const json = (await response.json().catch(() => ({}))) as VerifyOtpResponseBody
-  if (!response.ok && !json.error) {
-    throw new Error(`OTP verification failed with status ${response.status}`)
+    const data = await safeExtractResponse(response, 'OTP verification')
+    if (data.isHttpError) {
+      return {
+        success: false,
+        error: data.error,
+      }
+    }
+    return data as VerifyOtpResponseBody
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to verify OTP due to network error.',
+    }
   }
-  return json
 }
 
 /**
@@ -72,20 +127,30 @@ export async function clientFetchAttendance(
   token: string,
   mode: PortalMode = 'live',
 ): Promise<FetchAttendanceResponseBody> {
-  const response = await fetch(`${API_BASE}?action=attendance`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      token: token.trim(),
-      mode,
-    }),
-  })
+  try {
+    const response = await fetch(`${API_BASE}?action=attendance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: token.trim(),
+        mode,
+      }),
+    })
 
-  const json = (await response.json().catch(() => ({}))) as FetchAttendanceResponseBody
-  if (!response.ok && !json.error) {
-    throw new Error(`Attendance retrieval failed with status ${response.status}`)
+    const data = await safeExtractResponse(response, 'Attendance retrieval')
+    if (data.isHttpError) {
+      return {
+        success: false,
+        error: data.error,
+      }
+    }
+    return data as FetchAttendanceResponseBody
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to retrieve attendance due to network error.',
+    }
   }
-  return json
 }
