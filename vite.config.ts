@@ -1,13 +1,16 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import {
   initiateCyberVidyaLogin,
   verifyCyberVidyaOtp,
   fetchCyberVidyaAttendance,
+  fetchCyberVidyaLectureAttendance,
+  fetchCyberVidyaSchedule,
+  fetchCyberVidyaRegisteredCourses,
 } from './src/server/cybervidyaService'
 
-function cybervidyaDevMiddleware(): Plugin {
+function cybervidyaDevMiddleware(adminKey: string): Plugin {
   return {
     name: 'cybervidya-dev-middleware',
     configureServer(server) {
@@ -60,12 +63,39 @@ function cybervidyaDevMiddleware(): Plugin {
                 portalUrl: body.portalUrl,
                 mode: body.mode,
               })
+            } else if (action === 'lecture-attendance') {
+              result = await fetchCyberVidyaLectureAttendance(
+                body.token,
+                {
+                  studentId: body.studentId,
+                  courseId: body.courseId,
+                  courseCompId: body.courseCompId,
+                },
+                { portalUrl: body.portalUrl, mode: body.mode },
+              )
+            } else if (action === 'schedule') {
+              result = await fetchCyberVidyaSchedule(body.token, {
+                portalUrl: body.portalUrl,
+                mode: body.mode,
+              })
+            } else if (action === 'registered-courses') {
+              result = await fetchCyberVidyaRegisteredCourses(body.token, {
+                portalUrl: body.portalUrl,
+                mode: body.mode,
+              })
+            } else if (action === 'verify-admin') {
+              const provided = (body.passcode || body.key || '').trim()
+              const isValid = Boolean(provided && provided === adminKey.trim())
+              result = {
+                success: isValid,
+                error: isValid ? undefined : 'Invalid Admin Passcode.',
+              }
             } else {
               res.statusCode = 400
               return res.end(
                 JSON.stringify({
                   success: false,
-                  error: `Invalid action: ${action}. Expected: login, verify-otp, or attendance.`,
+                  error: `Invalid action: ${action}. Expected: login, verify-otp, attendance, lecture-attendance, schedule, registered-courses, or verify-admin.`,
                 }),
               )
             }
@@ -87,11 +117,21 @@ function cybervidyaDevMiddleware(): Plugin {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), cybervidyaDevMiddleware()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const adminKey =
+    env.ADMIN_KEY ||
+    env.VITE_ADMIN_KEY ||
+    process.env.ADMIN_KEY ||
+    process.env.VITE_ADMIN_KEY ||
+    'kiet@admin2026'
+
+  return {
+    plugins: [react(), cybervidyaDevMiddleware(adminKey)],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
     },
-  },
+  }
 })

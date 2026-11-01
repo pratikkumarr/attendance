@@ -79,6 +79,9 @@ export interface CyberVidyaAttendanceApiResponse {
 export interface NormalizedPortalSubject {
   /** Stable unique external identifier, e.g. "102_202" (courseId_componentId) */
   externalId: string
+  studentId?: number
+  courseId?: number
+  courseCompId?: number
   courseCode: string
   courseName: string
   componentName: string

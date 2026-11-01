@@ -124,6 +124,9 @@ function normalizeCyberVidyaResponse(raw: any) {
 
       subjects.push({
         externalId,
+        studentId: course.studentId || raw.id || raw.studentId || 1000,
+        courseId: course.courseId || 0,
+        courseCompId: comp.courseComponentId || 0,
         courseCode: course.courseCode || '',
         courseName: course.courseName || '',
         componentName: comp.componentName || '',
@@ -411,6 +414,132 @@ async function handleAttendance(body: any) {
 }
 
 // ---------------------------------------------------------------------------
+// Step 4: Lecture Wise Attendance
+// ---------------------------------------------------------------------------
+
+async function handleLectureAttendance(body: any) {
+  const cleanToken = (body.token || '').trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing token' }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(body.portalUrl, body.mode)
+  const endpoint = `${baseUrl}/api/attendance/schedule/student/course/attendance/percentage`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+      body: JSON.stringify({
+        studentId: body.studentId || 1000,
+        courseId: body.courseId,
+        courseCompId: body.courseCompId,
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data?.[0]?.lectureList || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message, data: [] }
+  }
+}
+
+async function handleSchedule(body: any) {
+  const cleanToken = (body.token || '').trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing token', data: [] }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(body.portalUrl, body.mode)
+  const now = new Date()
+  const startDateObj = new Date(now)
+  startDateObj.setDate(now.getDate() - 7)
+  const endDateObj = new Date(now)
+  endDateObj.setDate(now.getDate() + 14)
+
+  const formatD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  const weekStartDate = formatD(startDateObj)
+  const weekEndDate = formatD(endDateObj)
+  const endpoint = `${baseUrl}/api/student/schedule/class?weekEndDate=${weekEndDate}&weekStartDate=${weekStartDate}`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message, data: [] }
+  }
+}
+
+async function handleRegisteredCourses(body: any) {
+  const cleanToken = (body.token || '').trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing token', data: [] }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(body.portalUrl, body.mode)
+  const endpoint = `${baseUrl}/api/student/dashboard/registered-courses`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message, data: [] }
+  }
+}
+
+function handleVerifyAdmin(body: any) {
+  const expectedKey = (process.env.ADMIN_KEY || process.env.VITE_ADMIN_KEY || 'kiet@admin2026').trim()
+  const provided = (body.passcode || body.key || '').trim()
+
+  if (!provided) {
+    return { success: false, error: 'Passcode is required.' }
+  }
+
+  if (provided === expectedKey) {
+    return { success: true, message: 'Admin authenticated successfully.' }
+  }
+
+  return { success: false, error: 'Invalid Admin Passcode.' }
+}
+
+// ---------------------------------------------------------------------------
 // Request Helpers
 // ---------------------------------------------------------------------------
 
@@ -522,10 +651,30 @@ export default async function handler(req: any, res: any) {
         return sendJson(res, result.success ? 200 : 400, result)
       }
 
+      case 'lecture-attendance': {
+        const result = await handleLectureAttendance(body)
+        return sendJson(res, result.success ? 200 : 400, result)
+      }
+
+      case 'schedule': {
+        const result = await handleSchedule(body)
+        return sendJson(res, result.success ? 200 : 400, result)
+      }
+
+      case 'registered-courses': {
+        const result = await handleRegisteredCourses(body)
+        return sendJson(res, result.success ? 200 : 400, result)
+      }
+
+      case 'verify-admin': {
+        const result = handleVerifyAdmin(body)
+        return sendJson(res, result.success ? 200 : 401, result)
+      }
+
       default:
         return sendJson(res, 400, {
           success: false,
-          error: `Unknown action: "${action}". Valid actions: login, verify-otp, attendance`,
+          error: `Unknown action: "${action}". Valid actions: login, verify-otp, attendance, lecture-attendance, schedule, registered-courses, verify-admin`,
         })
     }
   } catch (err: any) {

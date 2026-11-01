@@ -108,6 +108,9 @@ export function normalizeCyberVidyaResponse(
 
       subjects.push({
         externalId,
+        studentId: (course as any).studentId || (raw as any).id || (raw as any).studentId || 1000,
+        courseId: course.courseId || 0,
+        courseCompId: comp.courseComponentId || 0,
         courseCode: course.courseCode || '',
         courseName: course.courseName || '',
         componentName: comp.componentName || '',

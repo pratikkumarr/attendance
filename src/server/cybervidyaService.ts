@@ -344,3 +344,125 @@ export async function fetchCyberVidyaAttendance(
     }
   }
 }
+
+/**
+ * Step 4: Fetch Lecture-wise Attendance History
+ */
+export async function fetchCyberVidyaLectureAttendance(
+  token: string,
+  params: { studentId: number; courseId: number; courseCompId: number },
+  options?: { portalUrl?: string; mode?: PortalMode },
+) {
+  const cleanToken = token?.trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing session token.', data: [] }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
+  const endpoint = `${baseUrl}/api/attendance/schedule/student/course/attendance/percentage`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data?.[0]?.lectureList || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to fetch lecture history', data: [] }
+  }
+}
+
+/**
+ * Step 5: Fetch Student Class Schedule
+ */
+export async function fetchCyberVidyaSchedule(
+  token: string,
+  options?: { portalUrl?: string; mode?: PortalMode },
+) {
+  const cleanToken = token?.trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing session token.', data: [] }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
+  const now = new Date()
+  const startDateObj = new Date(now)
+  startDateObj.setDate(now.getDate() - 7)
+  const endDateObj = new Date(now)
+  endDateObj.setDate(now.getDate() + 14)
+
+  const formatD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  const weekStartDate = formatD(startDateObj)
+  const weekEndDate = formatD(endDateObj)
+  const endpoint = `${baseUrl}/api/student/schedule/class?weekEndDate=${weekEndDate}&weekStartDate=${weekStartDate}`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to fetch schedule', data: [] }
+  }
+}
+
+/**
+ * Step 6: Fetch Registered Courses
+ */
+export async function fetchCyberVidyaRegisteredCourses(
+  token: string,
+  options?: { portalUrl?: string; mode?: PortalMode },
+) {
+  const cleanToken = token?.trim()
+  if (!cleanToken) {
+    return { success: false, error: 'Missing session token.', data: [] }
+  }
+
+  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
+  const endpoint = `${baseUrl}/api/student/dashboard/registered-courses`
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: getBrowserHeaders(baseUrl, {
+        Authorization: formatAuthHeader(cleanToken),
+      }),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}`, data: [] }
+    }
+
+    const json = (await response.json().catch(() => ({}))) as any
+    const list = json?.data || []
+    return { success: true, data: list }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to fetch registered courses', data: [] }
+  }
+}

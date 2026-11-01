@@ -1,32 +1,117 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { isSupabaseConfigured } from '@/lib/supabase'
-import { SetupScreen } from '@/pages/SetupScreen'
-import { AppShell } from '@/components/layout/AppShell'
+import React, { useState, useEffect } from 'react'
+import { ThemeProvider, useTheme } from '@/ThemeContext'
+import { getAuthToken, isDemoMode, logout, getStudentProfileInfo } from '@/lib/api'
+import { UserDetails, RegisteredCourse } from '@/types/bunkbook'
+import { TopHeader } from '@/components/layout/TopHeader'
+import { BottomTabBar, TabKey } from '@/components/layout/BottomTabBar'
 import { Home } from '@/pages/Home'
-import { PersonDashboard } from '@/pages/PersonDashboard'
-import { SubjectDetail } from '@/pages/SubjectDetail'
-import { Compare } from '@/pages/Compare'
-import { Totals } from '@/pages/Totals'
+import { TodayAttendance } from '@/pages/TodayAttendance'
+import { Login } from '@/pages/Login'
+import { CourseDetailsModal } from '@/components/course/CourseDetailsModal'
+import { AdminModal } from '@/components/admin/AdminModal'
 
-export function App() {
-  if (!isSupabaseConfigured) {
-    return <SetupScreen />
+function BunkBookMain() {
+  const { colors, isDark, isBrutalist } = useTheme()
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return Boolean(getAuthToken() || isDemoMode())
+  })
+  const [user, setUser] = useState<UserDetails | null>(null)
+  const [currentTab, setCurrentTab] = useState<TabKey>('home')
+
+  // Modals
+  const [selectedCourse, setSelectedCourse] = useState<RegisteredCourse | null>(null)
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false)
+  const [adminHighlightCode, setAdminHighlightCode] = useState<string | undefined>()
+
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      getStudentProfileInfo()
+        .then(setUser)
+        .catch((e) => console.log('Could not load user profile info:', e))
+    }
+  }, [isAuthenticated, refreshTrigger])
+
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to log out of Nashta?')) {
+      await logout()
+      setIsAuthenticated(false)
+      setUser(null)
+    }
+  }
+
+  const handleOpenAdmin = (targetCourseCode?: string) => {
+    setAdminHighlightCode(targetCourseCode)
+    setIsAdminOpen(true)
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div
+        className="min-h-screen"
+        style={{ backgroundColor: colors.background, color: colors.text }}
+      >
+        <Login onLoginSuccess={() => setIsAuthenticated(true)} />
+      </div>
+    )
   }
 
   return (
-    <BrowserRouter>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/u/:name" element={<PersonDashboard />} />
-          <Route path="/u/:name/:subject" element={<SubjectDetail />} />
-          <Route path="/compare" element={<Compare />} />
-          <Route path="/totals" element={<Totals />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AppShell>
-    </BrowserRouter>
+    <div
+      className="min-h-screen flex flex-col font-sans transition-colors duration-200"
+      style={{ backgroundColor: colors.background, color: colors.text }}
+    >
+      {/* Top Header */}
+      <TopHeader
+        user={user}
+        onRefresh={() => setRefreshTrigger((k) => k + 1)}
+        onOpenAdmin={() => handleOpenAdmin()}
+        onLogout={handleLogout}
+      />
+
+      {/* Main Content View Container */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-5 pb-20">
+        {currentTab === 'home' && (
+          <Home
+            onSelectCourse={(course) => setSelectedCourse(course)}
+            onOpenAdmin={handleOpenAdmin}
+            onNavigateToTab={(tab) => setCurrentTab(tab as TabKey)}
+          />
+        )}
+
+        {currentTab === 'today' && <TodayAttendance />}
+      </main>
+
+      {/* Course Details Modal (with Remaining Classes & 75% / 86% calculation) */}
+      <CourseDetailsModal
+        course={selectedCourse}
+        onClose={() => setSelectedCourse(null)}
+        onOpenAdmin={(code) => {
+          setSelectedCourse(null)
+          handleOpenAdmin(code)
+        }}
+      />
+
+      {/* Admin Subject Class Mapping Modal */}
+      <AdminModal
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        highlightCourseCode={adminHighlightCode}
+      />
+
+      {/* Bottom Navigation Bar */}
+      <BottomTabBar currentTab={currentTab} onSelectTab={setCurrentTab} />
+    </div>
+  )
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <BunkBookMain />
+    </ThemeProvider>
   )
 }
 
