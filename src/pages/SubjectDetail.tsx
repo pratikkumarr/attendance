@@ -7,7 +7,7 @@ import { Stepper } from "@/components/attendance/Stepper"
 import { StatusBadge } from "@/components/attendance/StatusBadge"
 import { AttendanceProgressBar } from "@/components/attendance/AttendanceProgressBar"
 import { TrendLine } from "@/components/charts/TrendLine"
-import { useSubjects } from "@/hooks/useSubjects"
+import { useSubjects, useUpsertSubject } from "@/hooks/useSubjects"
 import { useEntries, useUpdateEntry } from "@/hooks/useEntries"
 import { useHistory } from "@/hooks/useHistory"
 import { planSubject, projectFinal } from "@/lib/plan"
@@ -29,6 +29,7 @@ export function SubjectDetail() {
   const { data: entries = [] } = useEntries(userName)
   const { data: history = [] } = useHistory(userName, subjectName)
   const updateMutation = useUpdateEntry()
+  const upsertSubjectMutation = useUpsertSubject()
 
   const subject = subjects.find((s) => s.name === subjectName)
   const entry = entries.find((e) => e.subject === subjectName)
@@ -59,6 +60,19 @@ export function SubjectDetail() {
       showToast(`Saved changes for ${subjectName}`)
     } catch (err: any) {
       showToast(`Error: ${err?.message || "Failed to update"}`)
+    }
+  }
+
+  const handleTotalUpdate = async (newTotal: number) => {
+    try {
+      await upsertSubjectMutation.mutateAsync({
+        name: subjectName,
+        total: Math.max(0, newTotal),
+        position: subject?.position ?? 0,
+      })
+      showToast(`Updated planned semester total to ${newTotal}`)
+    } catch (err: any) {
+      showToast(`Error: ${err?.message || "Failed to update total"}`)
     }
   }
 
@@ -155,18 +169,30 @@ export function SubjectDetail() {
       {/* Quick Stepper Edits */}
       <Card>
         <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-sm font-semibold">Update Classes</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center justify-between">
+            <span>Update Classes</span>
+            <span className="text-[11px] font-normal text-muted-foreground">
+              Semester Total is manual and protected from sync overwrites
+            </span>
+          </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 flex items-center gap-6">
+        <CardContent className="p-4 flex flex-wrap items-center gap-6">
+          <Stepper
+            label="Semester Total (Plan)"
+            value={total}
+            onChange={(newTotal) => handleTotalUpdate(newTotal)}
+          />
           <Stepper
             label="Classes Done"
             value={done}
             onChange={(newDone) => handleUpdate(newDone, attended)}
+            warning={done > total && total > 0}
           />
           <Stepper
             label="Classes Attended"
             value={attended}
             onChange={(newAttended) => handleUpdate(done, newAttended)}
+            warning={attended > done}
           />
         </CardContent>
       </Card>

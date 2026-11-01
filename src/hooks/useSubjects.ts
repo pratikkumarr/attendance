@@ -25,21 +25,41 @@ export function useUpsertSubject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (subject: { name: string; total: number; position?: number }) => {
-      const { data, error } = await supabase
+    mutationFn: async (subject: {
+      name: string
+      total: number
+      position?: number
+      course_code?: string | null
+    }) => {
+      const payload: Record<string, any> = {
+        name: subject.name,
+        total: subject.total,
+        position: subject.position ?? 0,
+      }
+      if (subject.course_code !== undefined) {
+        payload.course_code = subject.course_code ? subject.course_code.trim().toUpperCase() : null
+      }
+
+      let { data, error } = await supabase
         .from('subjects')
-        .upsert(
-          {
-            name: subject.name,
-            total: subject.total,
-            position: subject.position ?? 0,
-          },
-          { onConflict: 'name' }
-        )
+        .upsert(payload, { onConflict: 'name' })
         .select()
         .single()
 
-      if (error) throw new Error(error.message)
+      // If the remote table does not yet have course_code column (migration pending), retry without it
+      if (error && error.message.includes('course_code')) {
+        delete payload.course_code
+        const retry = await supabase
+          .from('subjects')
+          .upsert(payload, { onConflict: 'name' })
+          .select()
+          .single()
+        if (retry.error) throw new Error(retry.error.message)
+        data = retry.data
+      } else if (error) {
+        throw new Error(error.message)
+      }
+
       return data
     },
     onSuccess: () => {

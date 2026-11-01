@@ -9,6 +9,9 @@ import {
   ChevronDown,
   User,
   Check,
+  GraduationCap,
+  Sparkles,
+  RotateCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { KpiRow } from "@/components/attendance/KpiRow"
@@ -16,10 +19,12 @@ import { SubjectCard } from "@/components/attendance/SubjectCard"
 import { SubjectTable } from "@/components/attendance/SubjectTable"
 import { WhatIfSimulator } from "@/components/attendance/WhatIfSimulator"
 import { HistoryDrawer } from "@/components/attendance/HistoryDrawer"
-import { useSubjects } from "@/hooks/useSubjects"
+import { CyberVidyaSyncModal } from "@/components/cybervidya/CyberVidyaSyncModal"
+import { useSubjects, useUpsertSubject } from "@/hooks/useSubjects"
 import { useEntries, useUpdateEntry } from "@/hooks/useEntries"
 import { useHistory } from "@/hooks/useHistory"
 import { useUsers } from "@/hooks/useUsers"
+import { useCyberVidyaStatus } from "@/hooks/useCyberVidyaSync"
 import { planSubject } from "@/lib/plan"
 import { formatRelativeTime, exportToCsv, formatPct } from "@/lib/format"
 
@@ -30,6 +35,7 @@ export function PersonDashboard() {
 
   const [viewMode, setViewMode] = React.useState<"cards" | "table">("cards")
   const [isHistoryOpen, setIsHistoryOpen] = React.useState(false)
+  const [isSyncModalOpen, setIsSyncModalOpen] = React.useState(false)
   const [copiedLink, setCopiedLink] = React.useState(false)
   const [toastMessage, setToastMessage] = React.useState<string | null>(null)
 
@@ -37,7 +43,10 @@ export function PersonDashboard() {
   const { data: entries = [], isLoading: loadingEntries } = useEntries(userName)
   const { data: history = [] } = useHistory(userName)
   const { users } = useUsers()
+  const { data: cvStatus } = useCyberVidyaStatus(userName)
+
   const updateMutation = useUpdateEntry()
+  const upsertSubjectMutation = useUpsertSubject()
 
   // Auto clear toast after 3s
   const showToast = (msg: string) => {
@@ -49,9 +58,14 @@ export function PersonDashboard() {
   const subjectData = React.useMemo(() => {
     return subjects.map((sub) => {
       const entry = entries.find((e) => e.subject === sub.name)
+      // Check if entry has personal total_classes, otherwise use sub.total
+      const effectiveTotal =
+        entry?.total_classes != null ? entry.total_classes : sub.total
+
       return {
         name: sub.name,
-        total: sub.total,
+        courseCode: sub.course_code ?? null,
+        total: effectiveTotal,
         position: sub.position,
         done: entry ? entry.done : 0,
         attended: entry ? entry.attended : 0,
@@ -100,7 +114,7 @@ export function PersonDashboard() {
     }
   }, [subjectData])
 
-  // Handler for updates
+  // Handler for updating done & attended
   const handleUpdate = async (subject: string, done: number, attended: number) => {
     try {
       await updateMutation.mutateAsync({
@@ -112,6 +126,22 @@ export function PersonDashboard() {
       showToast(`Updated ${subject}: ${done} done, ${attended} attended`)
     } catch (err: any) {
       showToast(`Failed to update ${subject}: ${err?.message || "Error"}`)
+    }
+  }
+
+  // Handler for manual Total Classes editing
+  // Preserves manual control over planned semester classes
+  const handleUpdateTotal = async (subject: string, newTotal: number) => {
+    try {
+      const existing = subjects.find((s) => s.name === subject)
+      await upsertSubjectMutation.mutateAsync({
+        name: subject,
+        total: newTotal,
+        position: existing?.position ?? 0,
+      })
+      showToast(`Saved Total Classes for ${subject}: ${newTotal}`)
+    } catch (err: any) {
+      showToast(`Failed to update total: ${err?.message || "Error"}`)
     }
   }
 
@@ -170,6 +200,8 @@ export function PersonDashboard() {
     )
   }
 
+  const isCvSynced = cvStatus?.syncRecord?.status === "synced"
+
   return (
     <div className="flex flex-col gap-6">
       {/* Toast Notification */}
@@ -215,6 +247,18 @@ export function PersonDashboard() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* SYNC FROM CYBERVIDYA BUTTON */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSyncModalOpen(true)}
+            className="h-8 gap-1.5 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10 shadow-xs"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Sync from CyberVidya
+          </Button>
+
           <Button
             type="button"
             variant="outline"
@@ -274,6 +318,43 @@ export function PersonDashboard() {
         </div>
       </div>
 
+      {/* CyberVidya Connection Status Strip (if synced) */}
+      {isCvSynced && cvStatus?.syncRecord && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 px-4 rounded-xl border border-primary/20 bg-primary/5 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-safe animate-pulse shrink-0" />
+            <span className="font-bold text-foreground">CyberVidya Linked:</span>
+            <span className="text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">
+              {cvStatus.syncRecord.roll_number}
+            </span>
+            {cvStatus.syncRecord.student_name && (
+              <span className="text-foreground font-medium">
+                ({cvStatus.syncRecord.student_name})
+              </span>
+            )}
+            {cvStatus.syncRecord.section_name && (
+              <span className="text-muted-foreground">
+                • Sec {cvStatus.syncRecord.section_name}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <span>
+              Last synced: <strong className="text-foreground">{formatRelativeTime(cvStatus.syncRecord.last_synced_at)}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsSyncModalOpen(true)}
+              className="text-primary font-bold hover:underline inline-flex items-center gap-1"
+            >
+              <RotateCw className="h-3 w-3" />
+              Re-sync
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI Row */}
       <KpiRow
         overallPct={overallPct}
@@ -288,9 +369,14 @@ export function PersonDashboard() {
       {/* Subject Statistics Display: Cards or Table */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-foreground">Subject Breakdown</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-foreground">Subject Breakdown</h2>
+            <span className="text-xs text-muted-foreground">
+              ({subjectData.length} subjects enrolled)
+            </span>
+          </div>
           <span className="text-xs text-muted-foreground">
-            {subjectData.length} subjects enrolled
+            Click pencil to edit semester Total Classes
           </span>
         </div>
 
@@ -301,12 +387,14 @@ export function PersonDashboard() {
                 key={s.name}
                 userName={userName}
                 subjectName={s.name}
+                courseCode={s.courseCode}
                 total={s.total}
                 done={s.done}
                 attended={s.attended}
                 onUpdate={(newDone, newAttended) =>
                   handleUpdate(s.name, newDone, newAttended)
                 }
+                onUpdateTotal={(newTotal) => handleUpdateTotal(s.name, newTotal)}
               />
             ))}
           </div>
@@ -315,6 +403,7 @@ export function PersonDashboard() {
             userName={userName}
             subjects={subjectData}
             onUpdate={handleUpdate}
+            onUpdateTotal={handleUpdateTotal}
           />
         )}
       </section>
@@ -328,6 +417,17 @@ export function PersonDashboard() {
         onClose={() => setIsHistoryOpen(false)}
         historyRows={history}
         userName={userName}
+      />
+
+      {/* CyberVidya Synchronization Modal */}
+      <CyberVidyaSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        userName={userName}
+        existingSubjects={subjects}
+        existingEntries={entries}
+        existingMappings={cvStatus?.mappings}
+        syncRecord={cvStatus?.syncRecord}
       />
     </div>
   )
