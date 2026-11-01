@@ -7,10 +7,12 @@
 
 import crypto from 'node:crypto'
 
-// Force Node.js runtime (required for node:crypto AES cipher and Buffer support)
+// Force Node.js runtime and Mumbai, India (bom1) region to pass CyberVidya's Indian WAF/geo-block
 export const config = {
   runtime: 'nodejs',
+  regions: ['bom1'],
 }
+export const preferredRegion = ['bom1']
 
 // ---------------------------------------------------------------------------
 // Constants & Encryption
@@ -198,7 +200,7 @@ async function handleLogin(body: any) {
           requiresOtp: false,
           error:
             serverReason ||
-            'Access forbidden by CyberVidya. Please check your credentials or network connection.',
+            'Access forbidden by CyberVidya portal (HTTP 403). The portal blocks requests originating outside India. Ensure your Vercel Function Region is set to "Mumbai, India (bom1)" in Vercel Project Settings -> Functions.',
         }
       }
 
@@ -300,7 +302,9 @@ async function handleVerifyOtp(body: any) {
           success: false,
           error:
             serverReason ||
-            'Invalid or expired OTP. Please check the code in your email or request a new one.',
+            (status === 403
+              ? 'Access forbidden by CyberVidya (HTTP 403). Ensure Vercel Function region is Mumbai (bom1).'
+              : 'Invalid or expired OTP. Please check the code in your email or request a new one.'),
         }
       }
 

@@ -48,6 +48,7 @@ export async function clientLogin(
   username: string,
   password: string,
   mode: PortalMode = 'live',
+  portalUrl?: string,
 ): Promise<LoginResponseBody> {
   try {
     const response = await fetch(`${API_BASE}?action=login`, {
@@ -59,6 +60,7 @@ export async function clientLogin(
         username: username.trim(),
         password: password.trim(),
         mode,
+        portalUrl: portalUrl?.trim() || undefined,
       }),
     })
 
@@ -90,6 +92,7 @@ export async function clientVerifyOtp(
   transactionId: string,
   otp: string,
   mode: PortalMode = 'live',
+  portalUrl?: string,
 ): Promise<VerifyOtpResponseBody> {
   try {
     const response = await fetch(`${API_BASE}?action=verify-otp`, {
@@ -101,6 +104,7 @@ export async function clientVerifyOtp(
         transactionId: transactionId.trim(),
         otp: otp.trim(),
         mode,
+        portalUrl: portalUrl?.trim() || undefined,
       }),
     })
 
@@ -126,6 +130,7 @@ export async function clientVerifyOtp(
 export async function clientFetchAttendance(
   token: string,
   mode: PortalMode = 'live',
+  portalUrl?: string,
 ): Promise<FetchAttendanceResponseBody> {
   try {
     const response = await fetch(`${API_BASE}?action=attendance`, {
@@ -136,6 +141,7 @@ export async function clientFetchAttendance(
       body: JSON.stringify({
         token: token.trim(),
         mode,
+        portalUrl: portalUrl?.trim() || undefined,
       }),
     })
 

@@ -132,7 +132,7 @@ export async function initiateCyberVidyaLogin(
           requiresOtp: false,
           error:
             serverReason ||
-            'Access forbidden by CyberVidya. Please check your credentials or network connection.',
+            'Access forbidden by CyberVidya portal (HTTP 403). The portal blocks requests originating outside India. Ensure your Vercel Function Region is set to "Mumbai, India (bom1)" in Vercel Project Settings -> Functions.',
         }
       }
 

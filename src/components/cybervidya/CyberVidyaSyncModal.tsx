@@ -47,6 +47,7 @@ export function CyberVidyaSyncModal({
   const [otp, setOtp] = React.useState('')
   const [transactionId, setTransactionId] = React.useState('')
   const [portalMode, setPortalMode] = React.useState<PortalMode>('live')
+  const [customProxyUrl, setCustomProxyUrl] = React.useState('')
   const [loading, setLoading] = React.useState(false)
   const [loadingMessage, setLoadingMessage] = React.useState('')
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
@@ -78,7 +79,12 @@ export function CyberVidyaSyncModal({
     setLoadingMessage('Contacting CyberVidya & requesting OTP...')
 
     try {
-      const res = await clientLogin(rollNumber, password, portalMode)
+      const res = await clientLogin(
+        rollNumber,
+        password,
+        portalMode,
+        portalMode === 'proxy' && customProxyUrl ? customProxyUrl : undefined,
+      )
 
       if (!res.success) {
         setErrorMessage(res.error || 'Authentication failed. Please verify your credentials.')
@@ -113,7 +119,12 @@ export function CyberVidyaSyncModal({
     setLoadingMessage('Verifying OTP code...')
 
     try {
-      const otpRes = await clientVerifyOtp(transactionId, otp, portalMode)
+      const otpRes = await clientVerifyOtp(
+        transactionId,
+        otp,
+        portalMode,
+        portalMode === 'proxy' && customProxyUrl ? customProxyUrl : undefined,
+      )
 
       if (!otpRes.success || !otpRes.token) {
         setErrorMessage(otpRes.error || 'Invalid or expired OTP code.')
@@ -135,7 +146,11 @@ export function CyberVidyaSyncModal({
     setLoadingMessage('Retrieving subjects & attendance records...')
 
     try {
-      const attRes = await clientFetchAttendance(token, portalMode)
+      const attRes = await clientFetchAttendance(
+        token,
+        portalMode,
+        portalMode === 'proxy' && customProxyUrl ? customProxyUrl : undefined,
+      )
 
       if (!attRes.success || !attRes.data) {
         setErrorMessage(attRes.error || 'Failed to retrieve attendance data.')
@@ -210,7 +225,7 @@ export function CyberVidyaSyncModal({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Live
+              Live (Direct KIET)
             </button>
             <button
               type="button"
@@ -221,10 +236,29 @@ export function CyberVidyaSyncModal({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Proxy
+              Proxy Mode
             </button>
           </div>
         </div>
+
+        {/* Custom Proxy Input (if in proxy mode) */}
+        {portalMode === 'proxy' && (
+          <div className="mb-4 rounded-xl border bg-muted/30 p-3 text-xs flex flex-col gap-1.5">
+            <label className="font-semibold text-foreground">
+              Custom Proxy / Worker URL (Optional)
+            </label>
+            <input
+              type="url"
+              value={customProxyUrl}
+              onChange={(e) => setCustomProxyUrl(e.target.value)}
+              placeholder="https://your-cors-proxy.workers.dev (Leave blank for default)"
+              className="w-full rounded-lg border bg-background px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              If CyberVidya blocks direct connection, specify your own Cloudflare Worker or reverse proxy endpoint.
+            </p>
+          </div>
+        )}
 
         {/* Error Notification */}
         {errorMessage && (
