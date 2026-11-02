@@ -17,19 +17,26 @@ import type {
   PortalMode,
 } from '../lib/cybervidya/types'
 
-export const CYBERVIDYA_LIVE_URL = 'https://kiet.cybervidya.net'
+const envProxy = (process.env.CYBERVIDYA_PROXY_URL || '').trim()
 export const CYBERVIDYA_PROXY_URL =
-  process.env.CYBERVIDYA_PROXY_URL || 'https://cybervidya.amanpal.tech'
+  envProxy && !envProxy.includes('workers.dev')
+    ? envProxy.replace(/\/+$/, '')
+    : 'https://cybervidya.amanpal.tech'
+
+const envLive = (process.env.CYBERVIDYA_PORTAL_URL || '').trim()
+export const CYBERVIDYA_LIVE_URL =
+  envLive && !envLive.includes('workers.dev')
+    ? envLive.replace(/\/+$/, '')
+    : 'https://kiet.cybervidya.net'
 
 export function resolvePortalBaseUrl(portalUrl?: string, mode?: PortalMode): string {
   if (portalUrl && portalUrl.trim()) {
     return portalUrl.trim().replace(/\/+$/, '')
   }
-  // On cloud hosting (Vercel), default to the dedicated Indian proxy to bypass WAF datacenter IP blocks
-  if (mode === 'proxy' || (process.env.VERCEL && mode !== 'live')) {
-    return CYBERVIDYA_PROXY_URL
+  if (mode === 'live') {
+    return CYBERVIDYA_LIVE_URL
   }
-  return CYBERVIDYA_LIVE_URL
+  return CYBERVIDYA_PROXY_URL
 }
 
 export async function fetchCyberVidya(
@@ -41,34 +48,48 @@ export async function fetchCyberVidya(
     headers?: Record<string, string>
     body?: any
   },
-): Promise<Response> {
-  const primaryBase = resolvePortalBaseUrl(options.portalUrl, options.mode)
-  const primaryUrl = `${primaryBase}${pathname}`
+): Promise<{ response: Response; attemptedUrl: string }> {
+  const targets: string[] = []
+  if (options.portalUrl && options.portalUrl.trim()) {
+    targets.push(options.portalUrl.trim().replace(/\/+$/, ''))
+  } else if (options.mode === 'live') {
+    targets.push(CYBERVIDYA_LIVE_URL, CYBERVIDYA_PROXY_URL)
+  } else {
+    targets.push(CYBERVIDYA_PROXY_URL, CYBERVIDYA_LIVE_URL)
+  }
 
-  const response = await fetch(primaryUrl, {
-    method: options.method,
-    headers: getBrowserHeaders(primaryBase, options.headers),
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  })
+  const uniqueTargets = [...new Set(targets)]
+  let lastResponse: Response | null = null
+  let lastUrl = uniqueTargets[0] + pathname
+  let lastError: any = null
 
-  // If live portal returned HTTP 403 (Nginx/WAF datacenter block), seamlessly fallback to the Indian proxy
-  if (response?.status === 403 && !options.portalUrl && primaryBase === CYBERVIDYA_LIVE_URL) {
+  for (const base of uniqueTargets) {
+    const targetUrl = `${base}${pathname}`
+    lastUrl = targetUrl
     try {
-      const fallbackUrl = `${CYBERVIDYA_PROXY_URL}${pathname}`
-      const fallbackResponse = await fetch(fallbackUrl, {
+      const res = await fetch(targetUrl, {
         method: options.method,
-        headers: getBrowserHeaders(CYBERVIDYA_PROXY_URL, options.headers),
+        headers: getBrowserHeaders(base, options.headers),
         body: options.body ? JSON.stringify(options.body) : undefined,
       })
-      if (fallbackResponse && fallbackResponse.status !== 403) {
-        return fallbackResponse
+
+      if (res && typeof res.status === 'number') {
+        lastResponse = res
+
+        if (res.status !== 403) {
+          return { response: res, attemptedUrl: targetUrl }
+        }
       }
-    } catch {
-      // Keep original response on fallback error
+    } catch (err) {
+      lastError = err
     }
   }
 
-  return response
+  if (!lastResponse) {
+    throw lastError || new Error('Unable to reach CyberVidya servers. Please check your internet connection.')
+  }
+
+  return { response: lastResponse, attemptedUrl: lastUrl }
 }
 
 /**
@@ -138,7 +159,7 @@ export async function initiateCyberVidyaLogin(
     const encryptedUser = encryptCyberVidyaString(cleanUser)
     const encryptedPass = encryptCyberVidyaString(cleanPass)
 
-    const response = await fetchCyberVidya('/api/auth/encrypt/login', {
+    const { response, attemptedUrl } = await fetchCyberVidya('/api/auth/encrypt/login', {
       method: 'POST',
       portalUrl: options?.portalUrl,
       mode: options?.mode,
@@ -180,7 +201,7 @@ export async function initiateCyberVidyaLogin(
           if (isNotIndia) {
             errorMsg = `Access forbidden by CyberVidya portal (HTTP 403). The Vercel function is executing in region "${currentRegion}" (outside India). CyberVidya requires India (bom1). If you already changed the region in Vercel settings, please trigger a Redeploy on Vercel.`
           } else {
-            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403) [Region: ${currentRegion}]. WAF rejected connection. If using Proxy Mode, switch back to "Live (Direct KIET)".`
+            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403) [Region: ${currentRegion}, Endpoint: ${attemptedUrl}]. WAF rejected connection.`
           }
         }
 
@@ -239,10 +260,7 @@ export async function initiateCyberVidyaLogin(
     return {
       success: false,
       requiresOtp: false,
-      error:
-        err?.message?.includes('fetch') || err?.code === 'ENOTFOUND'
-          ? 'Unable to reach CyberVidya servers. Please verify network access.'
-          : err?.message || 'Network error connecting to CyberVidya.',
+      error: 'Unable to reach CyberVidya servers. Please check your internet connection.',
     }
   }
 }
@@ -266,7 +284,7 @@ export async function verifyCyberVidyaOtp(
   }
 
   try {
-    const response = await fetchCyberVidya('/api/auth/verify/otp', {
+    const { response, attemptedUrl } = await fetchCyberVidya('/api/auth/verify/otp', {
       method: 'POST',
       portalUrl: options?.portalUrl,
       mode: options?.mode,
@@ -292,7 +310,7 @@ export async function verifyCyberVidyaOtp(
           error:
             serverReason ||
             (status === 403
-              ? `Access forbidden by CyberVidya (HTTP 403) [Region: ${currentRegion}]. Ensure Mumbai (bom1) is active and project is redeployed on Vercel.`
+              ? `Access forbidden by CyberVidya (HTTP 403) [Region: ${currentRegion}, Endpoint: ${attemptedUrl}]. Ensure Mumbai (bom1) is active and project is redeployed on Vercel.`
               : 'Invalid or expired OTP. Please check the code in your email or request a new one.'),
         }
       }
@@ -327,10 +345,7 @@ export async function verifyCyberVidyaOtp(
   } catch (err: any) {
     return {
       success: false,
-      error:
-        err?.message?.includes('fetch') || err?.code === 'ENOTFOUND'
-          ? 'Network error reaching CyberVidya during OTP verification.'
-          : err?.message || 'Failed to verify OTP.',
+      error: 'Unable to reach CyberVidya servers. Please check your internet connection.',
     }
   }
 }
@@ -351,7 +366,7 @@ export async function fetchCyberVidyaAttendance(
   }
 
   try {
-    const response = await fetchCyberVidya('/api/attendance/course/component/student', {
+    const { response } = await fetchCyberVidya('/api/attendance/course/component/student', {
       method: 'GET',
       portalUrl: options?.portalUrl,
       mode: options?.mode,
@@ -414,7 +429,7 @@ export async function fetchCyberVidyaLectureAttendance(
   }
 
   try {
-    const response = await fetchCyberVidya(
+    const { response } = await fetchCyberVidya(
       '/api/attendance/schedule/student/course/attendance/percentage',
       {
         method: 'POST',
@@ -469,7 +484,7 @@ export async function fetchCyberVidyaSchedule(
   const endpoint = `/api/student/schedule/class?weekEndDate=${weekEndDate}&weekStartDate=${weekStartDate}`
 
   try {
-    const response = await fetchCyberVidya(endpoint, {
+    const { response } = await fetchCyberVidya(endpoint, {
       method: 'GET',
       portalUrl: options?.portalUrl,
       mode: options?.mode,
@@ -503,7 +518,7 @@ export async function fetchCyberVidyaRegisteredCourses(
   }
 
   try {
-    const response = await fetchCyberVidya('/api/student/dashboard/registered-courses', {
+    const { response } = await fetchCyberVidya('/api/student/dashboard/registered-courses', {
       method: 'GET',
       portalUrl: options?.portalUrl,
       mode: options?.mode,
