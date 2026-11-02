@@ -251,7 +251,7 @@ export function CyberVidyaSyncModal({
               type="url"
               value={customProxyUrl}
               onChange={(e) => setCustomProxyUrl(e.target.value)}
-              placeholder="https://your-cors-proxy.workers.dev (Leave blank for default)"
+              placeholder="https://cybervidya.amanpal.tech (Leave blank for default)"
               className="w-full rounded-lg border bg-background px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <p className="text-[11px] text-muted-foreground">

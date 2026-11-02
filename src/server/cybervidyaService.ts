@@ -18,13 +18,57 @@ import type {
 } from '../lib/cybervidya/types'
 
 export const CYBERVIDYA_LIVE_URL = 'https://kiet.cybervidya.net'
-export const CYBERVIDYA_PROXY_URL = 'https://proxy.cybervidya.workers.dev'
+export const CYBERVIDYA_PROXY_URL =
+  process.env.CYBERVIDYA_PROXY_URL || 'https://cybervidya.amanpal.tech'
 
 export function resolvePortalBaseUrl(portalUrl?: string, mode?: PortalMode): string {
   if (portalUrl && portalUrl.trim()) {
     return portalUrl.trim().replace(/\/+$/, '')
   }
-  return mode === 'proxy' ? CYBERVIDYA_PROXY_URL : CYBERVIDYA_LIVE_URL
+  // On cloud hosting (Vercel), default to the dedicated Indian proxy to bypass WAF datacenter IP blocks
+  if (mode === 'proxy' || (process.env.VERCEL && mode !== 'live')) {
+    return CYBERVIDYA_PROXY_URL
+  }
+  return CYBERVIDYA_LIVE_URL
+}
+
+export async function fetchCyberVidya(
+  pathname: string,
+  options: {
+    method: 'GET' | 'POST'
+    portalUrl?: string
+    mode?: PortalMode
+    headers?: Record<string, string>
+    body?: any
+  },
+): Promise<Response> {
+  const primaryBase = resolvePortalBaseUrl(options.portalUrl, options.mode)
+  const primaryUrl = `${primaryBase}${pathname}`
+
+  const response = await fetch(primaryUrl, {
+    method: options.method,
+    headers: getBrowserHeaders(primaryBase, options.headers),
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  })
+
+  // If live portal returned HTTP 403 (Nginx/WAF datacenter block), seamlessly fallback to the Indian proxy
+  if (response?.status === 403 && !options.portalUrl && primaryBase === CYBERVIDYA_LIVE_URL) {
+    try {
+      const fallbackUrl = `${CYBERVIDYA_PROXY_URL}${pathname}`
+      const fallbackResponse = await fetch(fallbackUrl, {
+        method: options.method,
+        headers: getBrowserHeaders(CYBERVIDYA_PROXY_URL, options.headers),
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      })
+      if (fallbackResponse && fallbackResponse.status !== 403) {
+        return fallbackResponse
+      }
+    } catch {
+      // Keep original response on fallback error
+    }
+  }
+
+  return response
 }
 
 /**
@@ -90,23 +134,21 @@ export async function initiateCyberVidyaLogin(
     }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
-  const endpoint = `${baseUrl}/api/auth/encrypt/login`
-
   try {
     const encryptedUser = encryptCyberVidyaString(cleanUser)
     const encryptedPass = encryptCyberVidyaString(cleanPass)
 
-    const response = await fetch(endpoint, {
+    const response = await fetchCyberVidya('/api/auth/encrypt/login', {
       method: 'POST',
-      headers: getBrowserHeaders(baseUrl),
-      body: JSON.stringify({
+      portalUrl: options?.portalUrl,
+      mode: options?.mode,
+      body: {
         userName: encryptedUser,
         password: encryptedPass,
         device: 'WEB',
         version: null,
         reCaptchaToken: null,
-      }),
+      },
     })
 
     const status = response.status
@@ -223,19 +265,17 @@ export async function verifyCyberVidyaOtp(
     }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
-  const endpoint = `${baseUrl}/api/auth/verify/otp`
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchCyberVidya('/api/auth/verify/otp', {
       method: 'POST',
-      headers: getBrowserHeaders(baseUrl),
-      body: JSON.stringify({
+      portalUrl: options?.portalUrl,
+      mode: options?.mode,
+      body: {
         otp: cleanOtp,
         transactionId: cleanTx,
         device: 'WEB',
         version: null,
-      }),
+      },
     })
 
     const status = response.status
@@ -310,15 +350,14 @@ export async function fetchCyberVidyaAttendance(
     }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
-  const endpoint = `${baseUrl}/api/attendance/course/component/student`
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchCyberVidya('/api/attendance/course/component/student', {
       method: 'GET',
-      headers: getBrowserHeaders(baseUrl, {
+      portalUrl: options?.portalUrl,
+      mode: options?.mode,
+      headers: {
         Authorization: formatAuthHeader(cleanToken),
-      }),
+      },
     })
 
     const status = response.status
@@ -374,17 +413,19 @@ export async function fetchCyberVidyaLectureAttendance(
     return { success: false, error: 'Missing session token.', data: [] }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
-  const endpoint = `${baseUrl}/api/attendance/schedule/student/course/attendance/percentage`
-
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: getBrowserHeaders(baseUrl, {
-        Authorization: formatAuthHeader(cleanToken),
-      }),
-      body: JSON.stringify(params),
-    })
+    const response = await fetchCyberVidya(
+      '/api/attendance/schedule/student/course/attendance/percentage',
+      {
+        method: 'POST',
+        portalUrl: options?.portalUrl,
+        mode: options?.mode,
+        headers: {
+          Authorization: formatAuthHeader(cleanToken),
+        },
+        body: params,
+      },
+    )
 
     if (!response.ok) {
       return { success: false, error: `HTTP ${response.status}`, data: [] }
@@ -410,7 +451,6 @@ export async function fetchCyberVidyaSchedule(
     return { success: false, error: 'Missing session token.', data: [] }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
   const now = new Date()
   const startDateObj = new Date(now)
   startDateObj.setDate(now.getDate() - 7)
@@ -426,14 +466,16 @@ export async function fetchCyberVidyaSchedule(
 
   const weekStartDate = formatD(startDateObj)
   const weekEndDate = formatD(endDateObj)
-  const endpoint = `${baseUrl}/api/student/schedule/class?weekEndDate=${weekEndDate}&weekStartDate=${weekStartDate}`
+  const endpoint = `/api/student/schedule/class?weekEndDate=${weekEndDate}&weekStartDate=${weekStartDate}`
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchCyberVidya(endpoint, {
       method: 'GET',
-      headers: getBrowserHeaders(baseUrl, {
+      portalUrl: options?.portalUrl,
+      mode: options?.mode,
+      headers: {
         Authorization: formatAuthHeader(cleanToken),
-      }),
+      },
     })
 
     if (!response.ok) {
@@ -460,15 +502,14 @@ export async function fetchCyberVidyaRegisteredCourses(
     return { success: false, error: 'Missing session token.', data: [] }
   }
 
-  const baseUrl = resolvePortalBaseUrl(options?.portalUrl, options?.mode)
-  const endpoint = `${baseUrl}/api/student/dashboard/registered-courses`
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetchCyberVidya('/api/student/dashboard/registered-courses', {
       method: 'GET',
-      headers: getBrowserHeaders(baseUrl, {
+      portalUrl: options?.portalUrl,
+      mode: options?.mode,
+      headers: {
         Authorization: formatAuthHeader(cleanToken),
-      }),
+      },
     })
 
     if (!response.ok) {
