@@ -29,6 +29,18 @@ function cybervidyaDevMiddleware(adminKey: string): Plugin {
           return res.end()
         }
 
+        if (req.method === 'GET') {
+          res.statusCode = 200
+          return res.end(
+            JSON.stringify({
+              status: 'ok',
+              service: 'CyberVidya Dev Server Middleware',
+              region: 'local',
+              isMumbai: true,
+            }),
+          )
+        }
+
         if (req.method !== 'POST') {
           res.statusCode = 405
           return res.end(JSON.stringify({ success: false, error: 'Method not allowed' }))

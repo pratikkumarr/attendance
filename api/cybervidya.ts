@@ -181,7 +181,14 @@ async function handleLogin(body: any) {
     })
 
     const status = response.status
-    const json = (await response.json().catch(() => ({}))) as any
+    let rawText = ''
+    let json: any = {}
+    try {
+      rawText = await response.text()
+      json = JSON.parse(rawText)
+    } catch {
+      json = {}
+    }
 
     if (!response.ok) {
       const serverReason =
@@ -198,12 +205,25 @@ async function handleLogin(body: any) {
       }
 
       if (status === 403) {
+        const currentRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
+        const isNotIndia =
+          currentRegion !== 'bom1' &&
+          currentRegion !== 'ap-south-1' &&
+          currentRegion !== 'local'
+
+        let errorMsg = serverReason || (rawText && rawText.length < 120 ? rawText : '')
+        if (!errorMsg || errorMsg === 'Blocked') {
+          if (isNotIndia) {
+            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403). The Vercel function is currently executing in region "${currentRegion}" (outside India). CyberVidya blocks requests outside India. Even if you updated Vercel Project Settings to Mumbai (bom1), you must trigger a Redeploy in the Vercel Deployments tab for it to take effect.`
+          } else {
+            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403) [Region: ${currentRegion}]. Server returned: "${rawText || 'Blocked'}". If using Proxy Mode, switch back to "Live (Direct KIET)".`
+          }
+        }
+
         return {
           success: false,
           requiresOtp: false,
-          error:
-            serverReason ||
-            'Access forbidden by CyberVidya portal (HTTP 403). The portal blocks requests originating outside India. Ensure your Vercel Function Region is set to "Mumbai, India (bom1)" in Vercel Project Settings -> Functions.',
+          error: errorMsg,
         }
       }
 
@@ -294,19 +314,27 @@ async function handleVerifyOtp(body: any) {
     })
 
     const status = response.status
-    const json = (await response.json().catch(() => ({}))) as any
+    let rawText = ''
+    let json: any = {}
+    try {
+      rawText = await response.text()
+      json = JSON.parse(rawText)
+    } catch {
+      json = {}
+    }
 
     if (!response.ok) {
       const serverReason =
         json.error?.reason || json.error?.message || json.message || ''
 
       if (status === 400 || status === 403) {
+        const currentRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
         return {
           success: false,
           error:
             serverReason ||
             (status === 403
-              ? 'Access forbidden by CyberVidya (HTTP 403). Ensure Vercel Function region is Mumbai (bom1).'
+              ? `Access forbidden by CyberVidya (HTTP 403) [Region: ${currentRegion}]. Ensure Mumbai (bom1) is active and project is redeployed on Vercel.`
               : 'Invalid or expired OTP. Please check the code in your email or request a new one.'),
         }
       }
@@ -574,6 +602,7 @@ async function parseBody(req: any): Promise<Record<string, any>> {
 }
 
 function sendJson(res: any, status: number, data: any) {
+  const currentRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
   res.setHeader?.('Access-Control-Allow-Credentials', 'true')
   res.setHeader?.('Access-Control-Allow-Origin', '*')
   res.setHeader?.('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
@@ -582,6 +611,7 @@ function sendJson(res: any, status: number, data: any) {
     'X-CSRF-Token, X-Requested-With, Accept, Content-Type, Authorization',
   )
   res.setHeader?.('Content-Type', 'application/json')
+  res.setHeader?.('X-Vercel-Region', currentRegion)
 
   if (typeof res.status === 'function') {
     if (typeof res.json === 'function') {
@@ -621,6 +651,18 @@ export default async function handler(req: any, res: any) {
     }
     res.statusCode = 200
     return res.end()
+  }
+
+  // Diagnostic & Health Check GET endpoint to easily verify active deployment region
+  if (req.method === 'GET') {
+    const region = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
+    return sendJson(res, 200, {
+      status: 'ok',
+      service: 'CyberVidya Serverless Proxy',
+      region,
+      isMumbai: region === 'bom1' || region === 'ap-south-1',
+      nodeVersion: process.version,
+    })
   }
 
   if (req.method !== 'POST') {

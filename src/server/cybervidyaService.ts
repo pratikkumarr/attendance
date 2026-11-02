@@ -127,12 +127,25 @@ export async function initiateCyberVidyaLogin(
       }
 
       if (status === 403) {
+        const currentRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
+        const isNotIndia =
+          currentRegion !== 'bom1' &&
+          currentRegion !== 'ap-south-1' &&
+          currentRegion !== 'local'
+
+        let errorMsg = serverReason
+        if (!errorMsg || errorMsg === 'Blocked') {
+          if (isNotIndia) {
+            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403). The Vercel function is executing in region "${currentRegion}" (outside India). CyberVidya requires India (bom1). If you already changed the region in Vercel settings, please trigger a Redeploy on Vercel.`
+          } else {
+            errorMsg = `Access forbidden by CyberVidya portal (HTTP 403) [Region: ${currentRegion}]. WAF rejected connection. If using Proxy Mode, switch back to "Live (Direct KIET)".`
+          }
+        }
+
         return {
           success: false,
           requiresOtp: false,
-          error:
-            serverReason ||
-            'Access forbidden by CyberVidya portal (HTTP 403). The portal blocks requests originating outside India. Ensure your Vercel Function Region is set to "Mumbai, India (bom1)" in Vercel Project Settings -> Functions.',
+          error: errorMsg,
         }
       }
 
@@ -233,11 +246,14 @@ export async function verifyCyberVidyaOtp(
         json.error?.reason || json.error?.message || json.message || ''
 
       if (status === 400 || status === 403) {
+        const currentRegion = process.env.VERCEL_REGION || process.env.AWS_REGION || 'local'
         return {
           success: false,
           error:
             serverReason ||
-            'Invalid or expired OTP. Please check the code in your email or request a new one.',
+            (status === 403
+              ? `Access forbidden by CyberVidya (HTTP 403) [Region: ${currentRegion}]. Ensure Mumbai (bom1) is active and project is redeployed on Vercel.`
+              : 'Invalid or expired OTP. Please check the code in your email or request a new one.'),
         }
       }
 
