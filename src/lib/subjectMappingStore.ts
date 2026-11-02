@@ -1,4 +1,5 @@
 import { SubjectClassMapping, SkippableCalculation } from '@/types/bunkbook'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 const STORAGE_KEY = 'bunkbook_subject_mappings_v2'
 const ADMIN_SESSION_KEY = 'bunkbook_admin_authenticated'
@@ -8,8 +9,99 @@ export const normalizeSubjectCode = (code: string): string => {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
-// Initial default KIET subjects with fixed total classes (for all students)
+// Initial default KIET subjects with fixed static total classes (for all students)
 export const DEFAULT_SUBJECT_MAPPINGS: Record<string, SubjectClassMapping> = {
+  // Real Active KIET Curriculum Subjects (matching Supabase Cloud DB)
+  CS310L: {
+    subjectCode: 'CS310L',
+    subjectName: 'Theory of Computation',
+    totalClasses: 49,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  IT401B: {
+    subjectCode: 'IT401B',
+    subjectName: 'Advanced Databases',
+    totalClasses: 59,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS305E: {
+    subjectCode: 'CS305E',
+    subjectName: 'Professional Elective',
+    totalClasses: 74,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS311L: {
+    subjectCode: 'CS311L',
+    subjectName: 'Software Engineering',
+    totalClasses: 35,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS312B: {
+    subjectCode: 'CS312B',
+    subjectName: 'Deep Learning',
+    totalClasses: 63,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  HS203L: {
+    subjectCode: 'HS203L',
+    subjectName: 'Aptitude - 3',
+    totalClasses: 30,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  HS204L: {
+    subjectCode: 'HS204L',
+    subjectName: 'Soft Skills',
+    totalClasses: 26,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS313P: {
+    subjectCode: 'CS313P',
+    subjectName: 'Problem Solving',
+    totalClasses: 61,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS311P: {
+    subjectCode: 'CS311P',
+    subjectName: 'Software Engg Lab',
+    totalClasses: 24,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  IT304P: {
+    subjectCode: 'IT304P',
+    subjectName: 'Project Internship',
+    totalClasses: 0,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+  CS337E: {
+    subjectCode: 'CS337E',
+    subjectName: 'AWS Cloud Architecture and Data Engineering (BLENDED)',
+    totalClasses: 74,
+    lastUpdated: new Date().toISOString(),
+    updatedBy: 'Admin (System)',
+    isNewlyDiscovered: false,
+  },
+
+  // Standard & Test Reference KIET Subjects
   KCS501: {
     subjectCode: 'KCS501',
     subjectName: 'Database Management Systems',
@@ -127,10 +219,65 @@ export const saveSubjectMappings = (mappings: Record<string, SubjectClassMapping
 }
 
 /**
+ * Fetch static subject totals directly from Supabase Cloud DB (subjects table).
+ * This ensures all students and devices always use the Admin's permanent static values.
+ */
+export const fetchSubjectMappingsFromSupabase = async (): Promise<Record<string, SubjectClassMapping>> => {
+  if (!isSupabaseConfigured) {
+    return getSubjectMappings()
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('name, total, position, course_code')
+      .order('position', { ascending: true })
+
+    if (error) {
+      console.warn('Error fetching subjects from Supabase:', error.message)
+      return getSubjectMappings()
+    }
+
+    if (data && Array.isArray(data) && data.length > 0) {
+      const all = getSubjectMappings()
+
+      data.forEach((row) => {
+        const normCode = normalizeSubjectCode(row.course_code || row.name)
+        if (!normCode) return
+
+        all[normCode] = {
+          subjectCode: normCode,
+          subjectName: row.name,
+          totalClasses: Number(row.total) || 0,
+          lastUpdated: new Date().toISOString(),
+          updatedBy: 'Admin (Supabase Cloud)',
+          isNewlyDiscovered: false,
+        }
+
+        // Also index by normalized subject name for resilient matching
+        const normName = normalizeSubjectCode(row.name)
+        if (normName && normName !== normCode && !all[normName]) {
+          all[normName] = all[normCode]
+        }
+      })
+
+      saveSubjectMappings(all)
+      return all
+    }
+  } catch (err) {
+    console.warn('Failed to connect to Supabase for subject mappings:', err)
+  }
+
+  return getSubjectMappings()
+}
+
+/**
  * Auto-discovery function:
  * Called whenever a user logs in or courses are loaded.
- * If the user has any new subject, it gets auto-added to the subjects list
- * and will immediately be visible on the Admin Dashboard!
+ * 
+ * CRITICAL RULE:
+ * Total classes set by Admin are STATIC and PERMANENT!
+ * Student login or attendance fetch MUST NEVER overwrite or mutate totalClasses!
  */
 export const registerUserCourses = (
   courses: { courseCode: string; courseName: string; totalLecture?: number }[],
@@ -147,11 +294,11 @@ export const registerUserCourses = (
     const conducted = c.totalLecture || 0
 
     if (!all[norm]) {
-      // New subject discovered! Add it so admin can see and configure it
+      // Brand new subject discovered! Default to 40 and flag for Admin review
       all[norm] = {
         subjectCode: norm,
         subjectName: c.courseName || norm,
-        totalClasses: Math.max(40, conducted), // Default 40 or higher if already conducted
+        totalClasses: Math.max(40, conducted),
         lastUpdated: new Date().toISOString(),
         updatedBy: 'Discovered from Student Login',
         isNewlyDiscovered: true,
@@ -159,13 +306,12 @@ export const registerUserCourses = (
       }
       hasChanges = true
     } else {
-      // If conducted has exceeded fixed totalClasses, adjust totalClasses upward
-      if (conducted > all[norm].totalClasses) {
+      // Subject already exists: DO NOT OVERWRITE totalClasses!
+      // Total classes configured by Admin is static and permanently preserved.
+      if (!all[norm].subjectName && c.courseName) {
         all[norm] = {
           ...all[norm],
-          totalClasses: conducted,
-          lastUpdated: new Date().toISOString(),
-          updatedBy: 'Adjusted to Conducted Count',
+          subjectName: c.courseName,
         }
         hasChanges = true
       }
@@ -177,16 +323,36 @@ export const registerUserCourses = (
   }
 }
 
-// Get or auto-register mapping for a course code
+// Get or auto-register mapping for a course code with fuzzy name fallback
 export const getMappingForCourse = (courseCode: string, courseName?: string): SubjectClassMapping => {
   const norm = normalizeSubjectCode(courseCode)
   const all = getSubjectMappings()
 
+  // 1. Direct match by normalized course code
   if (norm && all[norm]) {
     return all[norm]
   }
 
-  // If not found, create a default mapping and flag as newly discovered
+  // 2. Resilient match by course name
+  if (courseName) {
+    const normName = normalizeSubjectCode(courseName)
+    const matchedByName = Object.values(all).find(
+      (m) =>
+        normalizeSubjectCode(m.subjectName) === normName ||
+        normalizeSubjectCode(m.subjectCode) === normName ||
+        (norm && normalizeSubjectCode(m.subjectName).includes(norm)),
+    )
+
+    if (matchedByName) {
+      if (norm) {
+        all[norm] = { ...matchedByName, subjectCode: norm }
+        saveSubjectMappings(all)
+      }
+      return matchedByName
+    }
+  }
+
+  // 3. Fallback to default
   const newMapping: SubjectClassMapping = {
     subjectCode: norm || courseCode || 'UNKNOWN',
     subjectName: courseName || courseCode || 'Unknown Subject',
@@ -235,6 +401,145 @@ export const updateSubjectTotalClasses = (
   saveSubjectMappings(all)
 }
 
+/**
+ * Save all subject mappings permanently to Supabase Cloud DB.
+ */
+export const saveAllSubjectMappingsToSupabase = async (
+  mappings: Record<string, SubjectClassMapping>,
+  adminName = 'Admin',
+): Promise<{ success: boolean; count: number; error?: string }> => {
+  saveSubjectMappings(mappings)
+
+  if (!isSupabaseConfigured) {
+    return { success: true, count: Object.keys(mappings).length }
+  }
+
+  let successCount = 0
+
+  try {
+    const { data: currentDbSubjects } = await supabase.from('subjects').select('*')
+    const existingList = currentDbSubjects || []
+
+    for (const m of Object.values(mappings)) {
+      const norm = normalizeSubjectCode(m.subjectCode)
+      const total = Math.max(0, Math.round(m.totalClasses))
+
+      const match = existingList.find(
+        (s) =>
+          (s.course_code && normalizeSubjectCode(s.course_code) === norm) ||
+          normalizeSubjectCode(s.name) === normalizeSubjectCode(m.subjectName) ||
+          s.name.toLowerCase() === m.subjectName.toLowerCase(),
+      )
+
+      if (match) {
+        const { error } = await supabase
+          .from('subjects')
+          .update({
+            total,
+            course_code: norm,
+          })
+          .eq('name', match.name)
+
+        if (!error) successCount++
+      } else {
+        const { error } = await supabase
+          .from('subjects')
+          .upsert(
+            {
+              name: m.subjectName || norm,
+              total,
+              course_code: norm,
+              position: existingList.length + successCount + 1,
+            },
+            { onConflict: 'name' },
+          )
+
+        if (!error) successCount++
+      }
+    }
+
+    // Pull refreshed records from Supabase to guarantee complete sync
+    await fetchSubjectMappingsFromSupabase()
+
+    return { success: true, count: successCount }
+  } catch (err: any) {
+    console.error('Error saving subject mappings to Supabase:', err)
+    return { success: false, count: successCount, error: err?.message || 'Network error' }
+  }
+}
+
+/**
+ * Save a single subject mapping permanently to Supabase.
+ */
+export const saveSubjectMappingToSupabase = async (
+  mapping: SubjectClassMapping,
+  adminName = 'Admin',
+): Promise<boolean> => {
+  setSubjectMapping(mapping, adminName)
+
+  if (!isSupabaseConfigured) return true
+
+  try {
+    const norm = normalizeSubjectCode(mapping.subjectCode)
+    const total = Math.max(0, Math.round(mapping.totalClasses))
+
+    const { data: existing } = await supabase
+      .from('subjects')
+      .select('*')
+      .or(`course_code.eq.${norm},name.eq.${mapping.subjectName}`)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('subjects')
+        .update({ total, course_code: norm })
+        .eq('name', existing[0].name)
+    } else {
+      await supabase.from('subjects').upsert(
+        {
+          name: mapping.subjectName || norm,
+          total,
+          course_code: norm,
+          position: 99,
+        },
+        { onConflict: 'name' },
+      )
+    }
+
+    return true
+  } catch (err) {
+    console.warn('Error saving single subject mapping to Supabase:', err)
+    return false
+  }
+}
+
+/**
+ * Initialize Realtime listener on Supabase subjects table.
+ */
+let realtimeChannelInitialized = false
+export const initSubjectMappingsRealtime = () => {
+  if (realtimeChannelInitialized || !isSupabaseConfigured || typeof window === 'undefined') {
+    return
+  }
+
+  realtimeChannelInitialized = true
+
+  try {
+    supabase
+      .channel('realtime:admin_subjects_totals')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subjects' },
+        () => {
+          fetchSubjectMappingsFromSupabase()
+        },
+      )
+      .subscribe()
+  } catch (err) {
+    console.warn('Realtime subscription error for subjects:', err)
+  }
+}
+
 // Admin API: Acknowledge a newly discovered subject
 export const acknowledgeSubjectMapping = (subjectCode: string) => {
   const norm = normalizeSubjectCode(subjectCode)
@@ -276,6 +581,22 @@ export const removeSubjectMapping = (subjectCode: string) => {
   if (all[norm]) {
     delete all[norm]
     saveSubjectMappings(all)
+  }
+}
+
+// Admin API: Remove a subject from mappings and delete from Supabase
+export const removeSubjectMappingFromSupabase = async (subjectCode: string): Promise<boolean> => {
+  removeSubjectMapping(subjectCode)
+
+  if (!isSupabaseConfigured) return true
+
+  try {
+    const norm = normalizeSubjectCode(subjectCode)
+    await supabase.from('subjects').delete().eq('course_code', norm)
+    return true
+  } catch (err) {
+    console.warn('Error removing subject from Supabase:', err)
+    return false
   }
 }
 

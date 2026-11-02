@@ -175,4 +175,41 @@ describe('Subject Code Mapping, Auto-Discovery & Dynamic Remaining Calculations'
     setAdminAuthenticated(false)
     expect(isAdminAuthenticated()).toBe(false)
   })
+
+  it('RULE: Admin total classes remains static and is NEVER overwritten when a user logs in next time', () => {
+    // 1. Admin sets fixed static total classes for CS310L to 49
+    updateSubjectTotalClasses('CS310L', 49, 'Admin Attri')
+    expect(getMappingForCourse('CS310L').totalClasses).toBe(49)
+
+    // 2. User logs in with 35 conducted classes
+    registerUserCourses([
+      {
+        courseCode: 'CS310L',
+        courseName: 'Theory of Computation',
+        totalLecture: 35,
+      },
+    ])
+    expect(getMappingForCourse('CS310L').totalClasses).toBe(49)
+
+    // 3. Next time user (or another student) logs in with 52 conducted classes (> 49)
+    registerUserCourses([
+      {
+        courseCode: 'CS310L',
+        courseName: 'Theory of Computation',
+        totalLecture: 52,
+      },
+    ])
+
+    // Total classes MUST remain static at 49, NOT mutated to 52!
+    const mappingAfter = getMappingForCourse('CS310L')
+    expect(mappingAfter.totalClasses).toBe(49)
+    expect(mappingAfter.updatedBy).toBe('Admin Attri')
+  })
+
+  it('RULE: Resilient matching matches subject by course code or subject name', () => {
+    updateSubjectTotalClasses('CS310L', 49, 'Admin')
+    // Matching with alternate casing or just subject name
+    const byName = getMappingForCourse('CS310L', 'Theory of Computation')
+    expect(byName.totalClasses).toBe(49)
+  })
 })

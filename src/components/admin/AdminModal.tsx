@@ -9,6 +9,10 @@ import {
   isAdminAuthenticated,
   setAdminAuthenticated,
   normalizeSubjectCode,
+  fetchSubjectMappingsFromSupabase,
+  saveAllSubjectMappingsToSupabase,
+  saveSubjectMappingToSupabase,
+  removeSubjectMappingFromSupabase,
 } from '@/lib/subjectMappingStore'
 import { verifyAdminPasscode } from '@/lib/api'
 import { SubjectClassMapping } from '@/types/bunkbook'
@@ -51,6 +55,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [mappings, setMappings] = useState<Record<string, SubjectClassMapping>>({})
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [isSaving, setIsSaving] = useState<boolean>(false)
 
   // New subject form state
   const [showAddForm, setShowAddForm] = useState<boolean>(false)
@@ -64,6 +69,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setMappings(getSubjectMappings())
       setPasscodeError('')
       setSaveSuccessMsg('')
+      // Asynchronously fetch latest static totals from Supabase Cloud DB
+      fetchSubjectMappingsFromSupabase().then((latest) => {
+        setMappings(latest)
+      })
     }
   }, [isOpen])
 
@@ -121,12 +130,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     })
   }
 
-  const handleSaveAll = () => {
-    Object.values(mappings).forEach((m) => {
-      updateSubjectTotalClasses(m.subjectCode, m.totalClasses, 'Admin Dashboard')
-    })
-    setSaveSuccessMsg('Fixed total classes for all subjects saved and applied to all students!')
-    setTimeout(() => setSaveSuccessMsg(''), 4000)
+  const handleSaveAll = async () => {
+    setIsSaving(true)
+    try {
+      const result = await saveAllSubjectMappingsToSupabase(mappings, 'Admin Dashboard')
+      setSaveSuccessMsg(
+        `Static total classes for all ${result.count} subjects saved permanently to Supabase cloud database!`,
+      )
+    } catch (err: any) {
+      setSaveSuccessMsg('Saved locally, but failed to sync to cloud: ' + (err?.message || 'Error'))
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setSaveSuccessMsg(''), 5000)
+    }
   }
 
   const handleAcknowledge = (code: string) => {
@@ -134,7 +150,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setMappings(getSubjectMappings())
   }
 
-  const handleAddNewSubject = (e: React.FormEvent) => {
+  const handleAddNewSubject = async (e: React.FormEvent) => {
     e.preventDefault()
     const norm = normalizeSubjectCode(newCode)
     if (!norm) {
@@ -151,21 +167,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       isNewlyDiscovered: false,
     }
 
-    setSubjectMapping(mapping, 'Admin Dashboard')
+    await saveSubjectMappingToSupabase(mapping, 'Admin Added')
     setMappings(getSubjectMappings())
     setShowAddForm(false)
     setNewCode('')
     setNewName('')
     setNewTotal(40)
-    setSaveSuccessMsg(`Added subject ${norm} with ${mapping.totalClasses} total fixed classes!`)
+    setSaveSuccessMsg(`Added subject ${norm} with ${mapping.totalClasses} total fixed classes (saved to Supabase)!`)
     setTimeout(() => setSaveSuccessMsg(''), 4000)
   }
 
-  const handleRemoveSubject = (code: string, name: string) => {
+  const handleRemoveSubject = async (code: string, name: string) => {
     if (confirm(`Are you sure you want to remove "${code} - ${name}" from the subject list?`)) {
-      removeSubjectMapping(code)
+      await removeSubjectMappingFromSupabase(code)
       setMappings(getSubjectMappings())
-      setSaveSuccessMsg(`Removed subject ${code} from the list.`)
+      setSaveSuccessMsg(`Removed subject ${code} from the list and database.`)
       setTimeout(() => setSaveSuccessMsg(''), 4000)
     }
   }
@@ -311,11 +327,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleSaveAll}
+                    disabled={isSaving}
                     className={`px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 ${
+                      isSaving ? 'opacity-70 cursor-not-allowed' : ''
+                    } ${
                       isBrutalist ? 'border-2 border-black font-black uppercase' : ''
                     }`}
                   >
-                    <Save className="w-3.5 h-3.5" /> Save All Changes
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving to Cloud...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" /> Save All Changes
+                      </>
+                    )}
                   </button>
 
                   <button

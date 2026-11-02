@@ -18,6 +18,8 @@ import {
   subscribeSubjectMappings,
   registerUserCourses,
   calculateSkippables,
+  fetchSubjectMappingsFromSupabase,
+  initSubjectMappingsRealtime,
 } from '@/lib/subjectMappingStore'
 import {
   ShieldCheck,
@@ -50,8 +52,11 @@ export const Home: React.FC<HomeProps> = ({
   const [loading, setLoading] = useState<boolean>(true)
   const [refreshKey, setRefreshKey] = useState<number>(0)
 
-  // Listen to admin mappings changes and re-render
+  // Listen to admin mappings changes, Realtime Supabase updates, and re-render
   useEffect(() => {
+    initSubjectMappingsRealtime()
+    fetchSubjectMappingsFromSupabase()
+
     const unsubscribe = subscribeSubjectMappings(() => {
       setRefreshKey((k) => k + 1)
     })

@@ -9,6 +9,10 @@ import { TodayAttendance } from '@/pages/TodayAttendance'
 import { Login } from '@/pages/Login'
 import { CourseDetailsModal } from '@/components/course/CourseDetailsModal'
 import { AdminModal } from '@/components/admin/AdminModal'
+import {
+  fetchSubjectMappingsFromSupabase,
+  initSubjectMappingsRealtime,
+} from '@/lib/subjectMappingStore'
 
 function BunkBookMain() {
   const { colors, isDark, isBrutalist } = useTheme()
@@ -27,6 +31,9 @@ function BunkBookMain() {
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0)
 
   useEffect(() => {
+    initSubjectMappingsRealtime()
+    fetchSubjectMappingsFromSupabase()
+
     if (isAuthenticated) {
       getStudentProfileInfo()
         .then(setUser)
