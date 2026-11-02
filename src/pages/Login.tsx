@@ -1,18 +1,14 @@
 import React, { useState } from 'react'
 import { useTheme } from '@/ThemeContext'
-import { loginApi, verifyOtpApi, login, setDemoMode } from '@/lib/api'
+import { loginApi, verifyOtpApi, login } from '@/lib/api'
 import { SamosaIcon } from '@/components/common/SamosaIcon'
 import {
   Eye,
   EyeOff,
-  Lock,
   User,
   KeyRound,
-  Sparkles,
   ArrowRight,
   AlertCircle,
-  Shield,
-  Layers,
 } from 'lucide-react'
 
 interface LoginProps {
@@ -42,7 +38,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleNativeLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('University roll number and password are required.')
+      setErrorMsg('KIET Unique ID and password are required.')
       return
     }
 
@@ -101,11 +97,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     onLoginSuccess()
   }
 
-  const handleDemoStudentLogin = () => {
-    setDemoMode(true)
-    onLoginSuccess()
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 transition-colors">
       <div
@@ -151,12 +142,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <form onSubmit={handleNativeLogin} className="space-y-4">
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                University Roll Number
+                KIET Unique ID
               </label>
               <div className="relative mt-1">
                 <input
                   type="text"
-                  placeholder="e.g. 2100290120145"
+                  placeholder="e.g. 202401100100188"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -292,27 +283,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               onClick={() => setIsOtpStep(false)}
               className="w-full text-center text-xs text-slate-500 hover:underline"
             >
-              ← Back to Roll Number & Password
+              ← Back to KIET Unique ID & Password
             </button>
           </form>
         )}
-
-        {/* Instant Demo Student Mode Button */}
-        <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 text-center space-y-2">
-          <p className="text-xs text-slate-500 font-medium">Want to explore right now?</p>
-          <button
-            type="button"
-            onClick={handleDemoStudentLogin}
-            className={`w-full py-3 rounded-2xl text-xs font-bold border transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-              isBrutalist
-                ? 'bg-[#06D6A0] text-black border-2 border-black font-mono uppercase'
-                : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>Explore Nashta (Demo Student Mode)</span>
-          </button>
-        </div>
       </div>
     </div>
   )

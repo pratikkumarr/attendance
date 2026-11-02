@@ -9,19 +9,9 @@ import {
   HallTicketOption,
   ExamScoreResponse,
 } from '@/types/bunkbook'
-import {
-  DEMO_USER_DETAILS,
-  DEMO_DASHBOARD_ATTENDANCE,
-  DEMO_REGISTERED_COURSES,
-  DEMO_LECTURES,
-  getDemoWeeklySchedule,
-  DEMO_EXAM_SCHEDULE,
-  DEMO_EXAM_SCORES,
-} from './demoData'
 import { registerUserCourses } from './subjectMappingStore'
 
 const AUTH_TOKEN_KEY = 'authToken'
-const IS_DEMO_KEY = 'bunkbook_is_demo_mode'
 
 // Auth Error event emitter
 type AuthEventListener = () => void
@@ -46,30 +36,15 @@ export const emitAuthError = () => {
 
 export const getAuthToken = (): string | null => {
   try {
-    return localStorage.getItem(AUTH_TOKEN_KEY)
+    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    if (token === 'DEMO_STUDENT_TOKEN') {
+      localStorage.removeItem(AUTH_TOKEN_KEY)
+      localStorage.removeItem('bunkbook_is_demo_mode')
+      return null
+    }
+    return token
   } catch {
     return null
-  }
-}
-
-export const isDemoMode = (): boolean => {
-  try {
-    return localStorage.getItem(IS_DEMO_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-export const setDemoMode = (enabled: boolean) => {
-  try {
-    if (enabled) {
-      localStorage.setItem(IS_DEMO_KEY, 'true')
-      localStorage.setItem(AUTH_TOKEN_KEY, 'DEMO_STUDENT_TOKEN')
-    } else {
-      localStorage.removeItem(IS_DEMO_KEY)
-    }
-  } catch {
-    // ignore
   }
 }
 
@@ -82,18 +57,18 @@ export const login = async (token: string): Promise<string> => {
       // ignore
     }
   }
-  if (!cleanToken.includes('GlobalEducation') && cleanToken !== 'DEMO_STUDENT_TOKEN') {
+  if (!cleanToken.includes('GlobalEducation')) {
     cleanToken = `GlobalEducation ${cleanToken}`
   }
   localStorage.setItem(AUTH_TOKEN_KEY, cleanToken)
-  localStorage.removeItem(IS_DEMO_KEY)
+  localStorage.removeItem('bunkbook_is_demo_mode')
   return cleanToken
 }
 
 export const logout = async () => {
   try {
     localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(IS_DEMO_KEY)
+    localStorage.removeItem('bunkbook_is_demo_mode')
     localStorage.removeItem('CACHE_DASHBOARD')
     localStorage.removeItem('CACHE_COURSES')
     localStorage.removeItem('CACHE_PROFILE')
@@ -182,23 +157,19 @@ export const verifyAdminPasscode = async (passcode: string): Promise<{ success: 
 
 // 3. User Details & Student Attendance Summary
 export const getAttendanceAndDetails = async (): Promise<UserDetails> => {
-  if (isDemoMode() || !getAuthToken()) {
-    return DEMO_USER_DETAILS
-  }
-
   try {
     const result = await callCyberVidyaProxy('attendance')
     if (result.success && result.data?.student) {
       const s = result.data.student
       const user: UserDetails = {
-        fullName: s.fullName,
-        registrationNumber: s.rollNumber,
-        rollNumber: s.rollNumber,
-        branchShortName: s.branch || 'CSE',
-        degreeName: s.degree || 'B.Tech',
-        semesterName: s.semester || 'Semester',
-        admissionBatchName: s.admissionBatchName || '2022-2026',
-        profilePhoto: DEMO_USER_DETAILS.profilePhoto,
+        fullName: s.fullName || 'Student',
+        registrationNumber: s.rollNumber || '',
+        rollNumber: s.rollNumber || '',
+        branchShortName: s.branch || '',
+        degreeName: s.degree || '',
+        semesterName: s.semester || '',
+        admissionBatchName: s.admissionBatchName || '',
+        profilePhoto: s.profilePhoto,
         attendanceCourseComponentInfoList: result.data.subjects || [],
       }
       localStorage.setItem('CACHE_PROFILE', JSON.stringify(user))
@@ -206,26 +177,31 @@ export const getAttendanceAndDetails = async (): Promise<UserDetails> => {
     }
     throw new Error('Malformed student profile response')
   } catch (err) {
-    console.warn('Failed to fetch attendance details from proxy, using cache or demo:', err)
+    console.warn('Failed to fetch attendance details from proxy, using cache:', err)
     const cached = localStorage.getItem('CACHE_PROFILE')
     if (cached) return JSON.parse(cached)
-    return DEMO_USER_DETAILS
+    return {
+      fullName: 'Student',
+      registrationNumber: '',
+      rollNumber: '',
+      branchShortName: '',
+      degreeName: '',
+      semesterName: '',
+      admissionBatchName: '',
+      attendanceCourseComponentInfoList: [],
+    }
   }
 }
 
 // 4. Dashboard Overall Attendance %
 export const getDashboardAttendance = async (): Promise<DashboardAttendance> => {
-  if (isDemoMode() || !getAuthToken()) {
-    return DEMO_DASHBOARD_ATTENDANCE
-  }
-
   try {
     const result = await callCyberVidyaProxy('attendance')
     if (result.success && result.data?.subjects) {
       const subs = result.data.subjects as any[]
       const totalConducted = subs.reduce((acc, curr) => acc + (curr.classesDone || 0), 0)
       const totalAttended = subs.reduce((acc, curr) => acc + (curr.classesAttended || 0), 0)
-      const presentPerc = totalConducted > 0 ? Number(((totalAttended / totalConducted) * 100).toFixed(1)) : 80.0
+      const presentPerc = totalConducted > 0 ? Number(((totalAttended / totalConducted) * 100).toFixed(1)) : 0
       const absentPerc = Number((100 - presentPerc).toFixed(1))
 
       const data: DashboardAttendance = { presentPerc, absentPerc }
@@ -233,27 +209,16 @@ export const getDashboardAttendance = async (): Promise<DashboardAttendance> => 
       return data
     }
   } catch (err) {
-    console.warn('Dashboard attendance fetch failed, using fallback:', err)
+    console.warn('Dashboard attendance fetch failed, checking cache:', err)
   }
 
   const cached = localStorage.getItem('CACHE_DASHBOARD')
   if (cached) return JSON.parse(cached)
-  return DEMO_DASHBOARD_ATTENDANCE
+  return { presentPerc: 0, absentPerc: 0 }
 }
 
 // 5. Registered Courses List
 export const getRegisteredCourses = async (): Promise<RegisteredCourse[]> => {
-  if (isDemoMode() || !getAuthToken()) {
-    registerUserCourses(
-      DEMO_REGISTERED_COURSES.map((c) => ({
-        courseCode: c.courseCode,
-        courseName: c.courseName,
-        totalLecture: c.studentCourseCompDetails?.[0]?.totalLecture || 0,
-      })),
-    )
-    return DEMO_REGISTERED_COURSES
-  }
-
   // 1. Try calling the direct registered-courses endpoint
   try {
     const regResult = await callCyberVidyaProxy('registered-courses')
@@ -317,14 +282,8 @@ export const getRegisteredCourses = async (): Promise<RegisteredCourse[]> => {
     )
     return parsed
   }
-  registerUserCourses(
-    DEMO_REGISTERED_COURSES.map((c) => ({
-      courseCode: c.courseCode,
-      courseName: c.courseName,
-      totalLecture: c.studentCourseCompDetails?.[0]?.totalLecture || 0,
-    })),
-  )
-  return DEMO_REGISTERED_COURSES
+
+  return []
 }
 
 // 6. Lecture-wise Detailed Attendance History
@@ -339,48 +298,30 @@ export const getLectureWiseAttendance = async (params: {
     return []
   }
 
-  if (isDemoMode() || !getAuthToken()) {
-    return DEMO_LECTURES[params.courseId] || [
-      { planLecDate: '2026-10-31', topicCovered: 'Advanced Topics & Unit Revision', attendance: 'PRESENT', timeSlot: '09:10 - 10:00 AM' },
-      { planLecDate: '2026-10-28', topicCovered: 'Practical Demonstration and Querying', attendance: 'PRESENT', timeSlot: '11:00 - 11:50 AM' },
-      { planLecDate: '2026-10-25', topicCovered: 'Class Test & Problem Solving Session', attendance: 'ABSENT', timeSlot: '02:00 - 02:50 PM' },
-      { planLecDate: '2026-10-22', topicCovered: 'Core Architectural Concepts & Case Study', attendance: 'PRESENT', timeSlot: '10:05 - 10:55 AM' },
-      { planLecDate: '2026-10-18', topicCovered: 'Foundational Theory & Algorithmic Analysis', attendance: 'PRESENT', timeSlot: '09:10 - 10:00 AM' },
-    ]
-  }
-
   try {
     const result = await callCyberVidyaProxy('lecture-attendance', params)
     if (result.success && Array.isArray(result.data)) {
       return result.data
     }
   } catch (e) {
-    console.log('Lecture detail fetch failed, using fallback mock.')
+    console.log('Lecture detail fetch failed.')
   }
 
-  return DEMO_LECTURES[params.courseId] || [
-    { planLecDate: '2026-10-31', topicCovered: 'Module Review and Practice', attendance: 'PRESENT', timeSlot: '09:10 - 10:00 AM' },
-    { planLecDate: '2026-10-29', topicCovered: 'System Implementations', attendance: 'PRESENT', timeSlot: '11:00 - 11:50 AM' },
-    { planLecDate: '2026-10-26', topicCovered: 'Analytical Methods', attendance: 'ABSENT', timeSlot: '10:05 - 10:55 AM' },
-  ]
+  return []
 }
 
 // 7. Weekly Timetable Schedule
 export const getWeeklySchedule = async (): Promise<TimetableEvent[]> => {
-  if (isDemoMode() || !getAuthToken()) {
-    return getDemoWeeklySchedule()
-  }
-
   try {
     const result = await callCyberVidyaProxy('schedule')
     if (result.success && Array.isArray(result.data) && result.data.length > 0) {
       return result.data
     }
   } catch (err) {
-    console.warn('Weekly schedule fetch from proxy failed, using demo fallback:', err)
+    console.warn('Weekly schedule fetch from proxy failed:', err)
   }
 
-  return getDemoWeeklySchedule()
+  return []
 }
 
 // 8. Student Profile Info
@@ -390,12 +331,12 @@ export const getStudentProfileInfo = async (): Promise<UserDetails> => {
 
 // 9. Exam Schedule (Datesheet)
 export const getExamSchedule = async (): Promise<ExamSchedule[]> => {
-  return DEMO_EXAM_SCHEDULE
+  return []
 }
 
 // 10. Exam Scores & Results
 export const getExamScore = async (): Promise<ExamScoreResponse | null> => {
-  return DEMO_EXAM_SCORES
+  return null
 }
 
 // 11. Hall Ticket

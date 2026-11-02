@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ThemeProvider, useTheme } from '@/ThemeContext'
-import { getAuthToken, isDemoMode, logout, getStudentProfileInfo } from '@/lib/api'
+import { getAuthToken, logout, getStudentProfileInfo } from '@/lib/api'
 import { UserDetails, RegisteredCourse } from '@/types/bunkbook'
 import { TopHeader } from '@/components/layout/TopHeader'
 import { BottomTabBar, TabKey } from '@/components/layout/BottomTabBar'
@@ -14,7 +14,7 @@ function BunkBookMain() {
   const { colors, isDark, isBrutalist } = useTheme()
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return Boolean(getAuthToken() || isDemoMode())
+    return Boolean(getAuthToken())
   })
   const [user, setUser] = useState<UserDetails | null>(null)
   const [currentTab, setCurrentTab] = useState<TabKey>('home')
